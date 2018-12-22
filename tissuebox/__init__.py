@@ -1,138 +1,167 @@
-class PV_RuleError(BaseException):
+from pprint import pprint
+
+from tissuebox.basic import between, boolean, integer, primitive, required, rfc_datetime, string
+from tissuebox.helpers import gattr, kgattr, ngattr, subscripts
+from tissuebox.scrap import payload, schema
+
+class SchemaError(BaseException):
     pass
 
-def integer(x):
-    if isinstance(x, bool):
-        return False
-    return isinstance(x, int)
-
-def negative_integer(x):
-    return integer(x) and x < 0
-
-def positive_integer(x):
-    return integer(x) and x > 0
-
-def whole_number(x):
-    return integer(x) and x >= 0
-
-def decimal(x):
-    return isinstance(x, float)
-
-def numeric(x):
-    return integer(x) or decimal(x)
-
-def negative(x):
-    return numeric(x) and x < 0
-
-def positive(x):
-    return numeric(x) and x > 0
-
-def string(x):
-    return isinstance(x, str)
-
-def email(x):
-    # https://emailregex.com/
-    import re
-    return bool(re.match(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)", x))
-
-def url(x):
-    # https://stackoverflow.com/a/17773849/968442
-    import re
-    return bool(re.match(r"(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9]\.[^\s]{2,})", x))
-
-def dictionary(x):
-    return isinstance(x, dict)
-
-def array(x):
-    return isinstance(x, list)
-
-def typed_array(array, type_function):
-    return all([type_function(item) for item in array])
-
-def boolean(x):
-    return isinstance(x, bool)
-
-def null(x):
-    return x is None
-
-def nested_get(d, attrs):
-    for at in attrs:
-        d = d[at.strip()]
-    return d
-
-def nested_get_quite(d, *attrs):
-    """
-    Similar to nested_get, but swallows the KeyError exception, Instead returns an empty iterable
-    :param d:
-    :param attrs:
-    :return:
-    """
-    try:
-        for at in attrs:
-            d = d[at]
-        return d
-    except KeyError:
-        return ''
-
-def validate(schema, payload):
-    """
-    Receives a schema and validates against the payload
-
-    :param schema:
-    :param payload:
-    :return: Tuple of (bool, list)
-    """
-
-    details = []
-
-    # Initial sanity checks
+def _tupled_schema(schema):
+    new = dict()
     for key in schema.keys():
-        if key not in ['required', 'types']:
-            raise PV_RuleError
 
-    # Process `exist` option
-    for item in nested_get_quite(schema, 'required'):
-        if '||' in item:
-            found = False
-            sub_items = item.strip().split('||')
-            for si in sub_items:
-                try:
-                    nested_get(payload, si.strip().split('.'))
-                    found = True
-                except KeyError:
-                    continue
-            if not found:
-                details.append("`exist` condition is failing for `{}`".format(item))
-
+        # Transition function uses (tuple) style
+        if isinstance(key, tuple):
+            if not len(key) == 2:
+                raise SchemaError('`{}` Transition function tuple requires exactly two elements'.format(key))
+            if not callable(key[0]):
+                raise SchemaError('`{}` Transition function must be callable'.format(key))
+            left = (key[0], tuple(key[1].split('.')))
+            new[left] = schema[key]
             continue
 
-        try:
-            nested_get(payload, item.strip().split('.'))
-        except KeyError:
-            details.append("`exist` condition is failing for `{}`".format(item))
+        left = tuple(key.split('.'))
+        new[left] = schema[key]
 
-    # Process `types` part
-    for key, value in nested_get_quite(schema, 'types').items():
-        try:
-            elem = nested_get(payload, key.strip().split('.'))
-        except KeyError:
-            continue  # Simply continue, we only validate data types for values that are found in the payload.
+    return new
+
+def _expand_schema(schema, payload):
+    new = dict()
+    to_remove = []
+
+    for key in schema.keys():
+        tab = fab = key  # Don't get overwhelmed by the tab-fab nightmare, fab handles the tuple formation of (callable(key[0]), key[1])
+        if callable(key[0]):
+            tab = key[1]
+            fab = (key[0], key[1])
+
+        for i in range(len(tab)):
+            got = ngattr(payload, *tab[:i])
+            if isinstance(got, list):
+                for j in range(len(got)):
+                    p = got[j]
+                    s = {tab[i:]: schema[fab]}
+                    e = _expand_schema(s, p)
+
+                    for _key in e.keys():
+                        if callable(key[0]):
+                            left = (key[0], tab[:i] + (j,) + _key)
+                            new[left] = schema[fab]
+                        else:
+                            left = tab[:i] + (j,) + _key
+                            new[left] = schema[tab]
+                to_remove.append(fab)
+                break
+        new[fab] = schema[fab]
+
+    for tr in to_remove:
+        new.pop(tr)
+
+    return new
+
+def _validate_element(payload, key, value, errors):
+    subs = subscripts(key)
+    sofar = []
+
+    try:
+
+        if value is required:
+            kgattr(payload, sofar, *key)
+            return
+
+        if callable(key[0]):
+            # Here key[0] is a translation function on the python side, ideally things like `len`, `sum` etc
+            elem = key[0](gattr(payload, *key[1]))
+            subs = "{}({})".format(key[0].__name__, subscripts(key[1]))
+        else:
+            elem = gattr(payload, *key)
+    except (KeyError, TypeError):
+        if value is required:
+            errors.append(subscripts(sofar) + ' is required')
+        return  # We only care about elements that are resolving properly, else simply continuing
+
+    # Handle primitive
+    if primitive(value):
+        if elem != value:
+            errors.append("{} is not equal to `{}`".format(subs, value))
+        return
+
+    # Handle enum
+    if isinstance(value, set):
+        if isinstance(elem, dict) or elem not in value:
+            errors.append("{} is failing to be enum of `{}`".format(subs, value))
+        return
+
+    # Handle parameterized function
+    if isinstance(value, tuple):
+        if not value[0](elem, *value[1:]):  # Here value[0] is the type function and rest of the tuple is it's params
+            errors.append("{} is failing to be `{}{}`".format(subs, value[0].__name__, value[1:]))
+        return
+
+    # At last validate the type_function
+    if not value(elem):  # value is the type_function here.
+        errors.append("{} is failing to be `{}`".format(subs, value.__name__))
+
+    return
+
+def _validate_element_schema(value, errors, subs):
+    if isinstance(value, dict):
+        errors.append("In {} nested schema for Tissuebox isn't implemented yet. Try installing the latest version".format(subs))
+        return
+
+    if isinstance(value, set):
+        if not value:
+            errors.append("In {} tries to define an enum but definition is empty.".format(subs))
+        return
+
+    if isinstance(value, tuple):
+        if not value:
+            errors.append("In {} received an empty tuple".format(subs))
+            return
+        if not callable(value[0]):
+            errors.append("In {} a valid type_function is required.".format(subs))
+        return
+
+    if not callable(value) and not primitive(value):
+        errors.append("In {} the type_function is not callable".format(subs))
+        return
+
+def _validate_schema(schema):
+    errors = []
+
+    for key in schema.keys():
+        value = schema[key]
+        subs = subscripts(key)
 
         if isinstance(value, list):
-            if not len(value) == 1:
-                raise PV_RuleError
-            if not typed_array(elem, value[0]):
-                details.append("`types` condition is failing for `{}`".format(key))
-            continue
+            for v in value:
+                _validate_element_schema(v, errors, subs)
+        else:
+            _validate_element_schema(value, errors, subs)
 
-        if isinstance(value, tuple):
-            if not value:
-                raise PV_RuleError
-            if not elem in value:
-                details.append("Enum tuple is failing for `{}`. Double check the schema".format(key))
-            continue
+    return not errors, errors
 
-        if not value(elem):
-            details.append("`types` condition is failing for `{}`".format(key))
+def validate(schema, payload=None):
+    errors = []
+    schema = _tupled_schema(schema)
 
-    return not details, details
+    result, details = _validate_schema(schema)  # First validate the schema itself.
+    if not result:
+        raise SchemaError(details)
+
+    schema = _expand_schema(schema, payload)
+
+    for key in schema.keys():
+        value = schema[key]
+        if isinstance(value, list):
+            for v in value:
+                _validate_element(payload, key, v, errors)
+        else:
+            _validate_element(payload, key, value, errors)
+
+    errors = sorted(set(errors))
+    return not errors, errors
+
+if __name__ == '__main__':
+    pprint(validate(schema, payload))
