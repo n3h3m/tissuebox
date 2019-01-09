@@ -5,7 +5,7 @@ with open("pypi.rst", "r") as fh:
 
 setup(
     name='tissuebox',
-    version='18.12.12',
+    version='2019.01.09',
     description='Tissuebox :: Pythonic payload validator',
     author='nehem',
     long_description=long_description,
