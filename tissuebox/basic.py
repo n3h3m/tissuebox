@@ -60,10 +60,8 @@ def url(x):
     # https://stackoverflow.com/a/17773849/968442
     return bool(re.match(r"(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9]\.[^\s]{2,})", x))
 
-def array(X, t=None):  # t is a type_function here.
-    if t:
-        return all([t(x) for x in X])
-    return isinstance(X, list)
+def array(x):
+    return isinstance(x, list)
 
 def dictionary(x):
     return isinstance(x, dict)

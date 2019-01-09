@@ -1,8 +1,5 @@
-from pprint import pprint
-
-from tissuebox.basic import between, boolean, integer, primitive, required, rfc_datetime, string
+from tissuebox.basic import primitive, required
 from tissuebox.helpers import gattr, kgattr, ngattr, subscripts
-from tissuebox.scrap import payload, schema
 
 class SchemaError(BaseException):
     pass
@@ -45,12 +42,24 @@ def _expand_schema(schema, payload):
                     e = _expand_schema(s, p)
 
                     for _key in e.keys():
-                        if callable(key[0]):
-                            left = (key[0], tab[:i] + (j,) + _key)
-                            new[left] = schema[fab]
+
+                        # This handling is necessary to ensure if a primitive array is found at the inner level/end/leaf level
+                        _got = ngattr(p, *_key)
+                        if isinstance(_got, list):
+                            for k in range(len(_got)):
+                                if callable(key[0]):
+                                    left = (key[0], tab[:i] + (j,) + _key + (k,))
+                                    new[left] = schema[fab]
+                                else:
+                                    left = tab[:i] + (j,) + _key + (k,)
+                                    new[left] = schema[tab]
                         else:
-                            left = tab[:i] + (j,) + _key
-                            new[left] = schema[tab]
+                            if callable(key[0]):
+                                left = (key[0], tab[:i] + (j,) + _key)
+                                new[left] = schema[fab]
+                            else:
+                                left = tab[:i] + (j,) + _key
+                                new[left] = schema[tab]
                 to_remove.append(fab)
                 break
         new[fab] = schema[fab]
@@ -61,11 +70,11 @@ def _expand_schema(schema, payload):
     return new
 
 def _validate_element(payload, key, value, errors):
+    key = tuple(x for x in key if x != '')
     subs = subscripts(key)
     sofar = []
 
     try:
-
         if value is required:
             kgattr(payload, sofar, *key)
             return
@@ -80,6 +89,12 @@ def _validate_element(payload, key, value, errors):
         if value is required:
             errors.append(subscripts(sofar) + ' is required')
         return  # We only care about elements that are resolving properly, else simply continuing
+
+    # Handle nested schema
+    if isinstance(value, dict):
+        for e in validate(value, elem)[1]:
+            errors.append("{}{}".format(subscripts(key), e))
+        return
 
     # Handle primitive
     if primitive(value):
@@ -106,10 +121,6 @@ def _validate_element(payload, key, value, errors):
     return
 
 def _validate_element_schema(value, errors, subs):
-    if isinstance(value, dict):
-        errors.append("In {} nested schema for Tissuebox isn't implemented yet. Try installing the latest version".format(subs))
-        return
-
     if isinstance(value, set):
         if not value:
             errors.append("In {} tries to define an enum but definition is empty.".format(subs))
@@ -123,8 +134,8 @@ def _validate_element_schema(value, errors, subs):
             errors.append("In {} a valid type_function is required.".format(subs))
         return
 
-    if not callable(value) and not primitive(value):
-        errors.append("In {} the type_function is not callable".format(subs))
+    if not callable(value) and not primitive(value) and not isinstance(value, dict):
+        errors.append("{} must be either type_function or schema or a primitive".format(subs))
         return
 
 def _validate_schema(schema):
@@ -142,7 +153,10 @@ def _validate_schema(schema):
 
     return not errors, errors
 
-def validate(schema, payload=None):
+def validate(schema, payload):
+    if not isinstance(payload, list) and not isinstance(payload, dict):
+        return False, ['Payload must be either list or dict']
+
     errors = []
     schema = _tupled_schema(schema)
 
@@ -162,6 +176,3 @@ def validate(schema, payload=None):
 
     errors = sorted(set(errors))
     return not errors, errors
-
-if __name__ == '__main__':
-    pprint(validate(schema, payload))

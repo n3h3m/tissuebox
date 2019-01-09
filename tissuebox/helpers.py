@@ -1,4 +1,4 @@
-from tissuebox import integer
+from tissuebox.basic import integer
 
 def subscripts(X):
     # Receives an iterable and returns the string of array subscripts
