@@ -2,7 +2,7 @@ from tissuebox.basic import integer
 
 def subscripts(X):
     # Receives an iterable and returns the string of array subscripts
-    ret = ''
+    ret = 'payload'
     for x in X:
         if integer(x):
             ret += '[{}]'.format(x)

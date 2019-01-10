@@ -6,18 +6,8 @@ class SchemaError(BaseException):
 
 def _tupled_schema(schema):
     new = dict()
+
     for key in schema.keys():
-
-        # Transition function uses (tuple) style
-        if isinstance(key, tuple):
-            if not len(key) == 2:
-                raise SchemaError('`{}` Transition function tuple requires exactly two elements'.format(key))
-            if not callable(key[0]):
-                raise SchemaError('`{}` Transition function must be callable'.format(key))
-            left = (key[0], tuple(key[1].split('.')))
-            new[left] = schema[key]
-            continue
-
         left = tuple(key.split('.'))
         new[left] = schema[key]
 
@@ -28,41 +18,21 @@ def _expand_schema(schema, payload):
     to_remove = []
 
     for key in schema.keys():
-        tab = fab = key  # Don't get overwhelmed by the tab-fab nightmare, fab handles the tuple formation of (callable(key[0]), key[1])
-        if callable(key[0]):
-            tab = key[1]
-            fab = (key[0], key[1])
 
-        for i in range(len(tab)):
-            got = ngattr(payload, *tab[:i])
+        for i in range(len(key)):
+            got = ngattr(payload, *key[:i])
             if isinstance(got, list):
                 for j in range(len(got)):
                     p = got[j]
-                    s = {tab[i:]: schema[fab]}
+                    s = {key[i:]: schema[key]}
                     e = _expand_schema(s, p)
 
                     for _key in e.keys():
-
-                        # This handling is necessary to ensure if a primitive array is found at the inner level/end/leaf level
-                        _got = ngattr(p, *_key)
-                        if isinstance(_got, list):
-                            for k in range(len(_got)):
-                                if callable(key[0]):
-                                    left = (key[0], tab[:i] + (j,) + _key + (k,))
-                                    new[left] = schema[fab]
-                                else:
-                                    left = tab[:i] + (j,) + _key + (k,)
-                                    new[left] = schema[tab]
-                        else:
-                            if callable(key[0]):
-                                left = (key[0], tab[:i] + (j,) + _key)
-                                new[left] = schema[fab]
-                            else:
-                                left = tab[:i] + (j,) + _key
-                                new[left] = schema[tab]
-                to_remove.append(fab)
+                        left = key[:i] + (j,) + _key
+                        new[left] = schema[key]
+                to_remove.append(key)
                 break
-        new[fab] = schema[fab]
+        new[key] = schema[key]
 
     for tr in to_remove:
         new.pop(tr)
@@ -78,13 +48,7 @@ def _validate_element(payload, key, value, errors):
         if value is required:
             kgattr(payload, sofar, *key)
             return
-
-        if callable(key[0]):
-            # Here key[0] is a translation function on the python side, ideally things like `len`, `sum` etc
-            elem = key[0](gattr(payload, *key[1]))
-            subs = "{}({})".format(key[0].__name__, subscripts(key[1]))
-        else:
-            elem = gattr(payload, *key)
+        elem = gattr(payload, *key)
     except (KeyError, TypeError):
         if value is required:
             errors.append(subscripts(sofar) + ' is required')
