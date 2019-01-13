@@ -4,10 +4,10 @@ Tissuebox
 ---------
 
 Tissuebox is a pure Pythonic schema validator which takes advantage of
-Python’s functional style to provide simple yet powerful validation
-framework. The standard usage would be validating incoming JSON objects
-upon http requests or to validate any Python dict in other common
-scenarios.
+Python’s functional style programming to provide simple yet powerful
+validation framework. The standard usage would be validating incoming
+JSON objects upon http requests or to validate any Python dict in other
+common scenarios.
 
 Installation:
 ^^^^^^^^^^^^^
@@ -20,13 +20,13 @@ Requirements:
 ^^^^^^^^^^^^^
 
 Tissuebox requires Python 3.7 however we are considering to add support
-for earlier versions along with Python 2.7.
+for earlier versions of Python3
 
 Examples:
 ^^^^^^^^^
 
 Assume the incoming JSON object or a python dict which contains hotel
-details.
+details and we will build upon this example.
 
 .. code:: python
 
@@ -42,8 +42,7 @@ details.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can use ``tissuebox`` to define a schema to validate the payload
-against basic data types and validate the payload via the ``validate``
-method.
+against basic data types and validate using ``validate`` method.
 
 .. code:: python
 
@@ -67,8 +66,13 @@ will return
 2. Validating common datatypes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+A ``tissuebox`` schema is simply a dict where keys are payload keys and
+values are type_functions to which the payload value would be passed. A
+type_function simply accepts a single parameter and returns a tuple with
+two items ``(boolean, msg)``.
+
 Tissuebox aims to amass a collection of commonly used types to it’s
-library. As of now common data types like ``email``, ``url``,
+library. For now common data types like ``email``, ``url``,
 ``rfc_datetime``, ``geolocation`` are part of ``tissuebox``\ ’s standard
 collections. You can contribute more via Github.
 
@@ -93,9 +97,10 @@ will return
 
 One of the ways ``tissuebox`` stands our from other alternatives is, the
 type_functions are stored and passed around as Python variables which is
-helpful in identifying the schema errors ahead of time, while other
-frameworks like JsonSchema and Cerebrus pass types within strings which
-is hard for IDEs to detect errors in the schema.
+helpful in identifying the schema definition errors ahead of time as
+most IDEs will display squiggly lines if the variables aren’t resolved,
+while other frameworks like JsonSchema and Cerebrus pass types within
+strings which is hard for IDEs to detect errors in the schema.
 
 3. Validating nested fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -126,7 +131,7 @@ and pass it to the main schema as below.
        }
    }
 
-   address_schema = {
+   address = {
        "street": string,
        "city": string,
        "state": string,
@@ -138,7 +143,7 @@ and pass it to the main schema as below.
        'price_per_night': integer,
        "email": email,
        "web": url,
-       "address": address_schema
+       "address": address
    }
 
    validate(schema, payload)
@@ -222,7 +227,49 @@ would return
 
    (False, ['["address"]["state"] is failing to be enum of `{\'SA\', \'QLD\', \'NT\', \'TAS\', \'VIC\', \'WA\', \'ACT\', \'NSW\'}`'])
 
-5. Writing custom validators
+5. Validating arrays
+^^^^^^^^^^^^^^^^^^^^
+
+Let us assume the payload has ``staffs`` which is array of staff names.
+
+.. code:: python
+
+   payload = {
+       "name": "Park Shereton",
+       "email": "contact@shereton.com",
+       "web": "www.shereton.com",
+       "staffs" ["John Doe", "Jane Smith"],
+   }
+
+Now the schema simple looks as below
+
+.. code:: python
+
+   schema = {
+       'name': string,
+       "email": email,
+       "web": url,
+       "staffs": [string]
+   }
+
+So in order to declare an element as array simply use ``[]`` syntax, if
+it’s array of string simply say ``[string]``. If it’s array of cats
+simply say ``[cat]``. Array syntax can be either empty or single length
+where the element means a type_function or another nested schema.
+
+There are two scenarios where Tissuebox implicitly handles the array.
+
+1. The incoming payload is simply list of dicts then Tissuebox knows
+   that the given schema must be validated against all the items in the
+   array.
+2. While declaring ``.`` dot separated nested attribute, and any of the
+   middle element is array, Tissuebox is aware of such fact and will
+   iterate the validation automatically.
+
+These two cases are implemented to make Tissuebox as intuitive as
+possible,
+
+6. Writing custom validators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 By now you would have observed that ``tissuebox`` schema is simply a
@@ -242,7 +289,7 @@ brevity I’ve removed few fields in the payload & schema.
    ...     # https://www.etl-tools.com/regular-expressions/is-australian-post-code.html
    ...     x = str(x)
    ...     import re
-   ...     return re.match(r'^(0[289][0-9]{2})|([1345689][0-9]{3})|(2[0-8][0-9]{2})|(290[0-9])|(291[0-4])|(7[0-4][0-9]{2})|(7[8-9][0-9]{2})$', x)
+   ...     return re.match(r'^(0[289][0-9]{2})|([1345689][0-9]{3})|(2[0-8][0-9]{2})|(290[0-9])|(291[0-4])|(7[0-4][0-9]{2})|(7[8-9][0-9]{2})$', x), "must be a valida Australian zip"
    ...
    >>> hotel = {
    ...     "address": {
@@ -255,61 +302,19 @@ brevity I’ve removed few fields in the payload & schema.
    ... }
    >>>
    >>> validate(schema, hotel)
-   (False, ['["address"]["zip"] is failing to be `australian_zip`'])
+   (False, ['["address"]["zip"] must be a valida Australian zip"])
 
-6. Getting all the error messages at one.
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7. Validating with type_functions that accept parameters.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We shoud not forget that ``tissuebox`` will always provide all possible
-errors upfront wherein the areas payload is failing. That way the user
-has the opportunity to fix his payload accordingly.
+In ``tissuebox`` type_functions always accept one argument which is the
+payload value. There are times for a type_function it makes sense to
+accepts multiple parameters. To achieve that they are declared as
+Python’s higher order functions.
 
-Let’s have a look where the incoming payload has lots of issues
-
-.. code:: python
-
-   >>> from pprint import pprint
-   >>> hotel = {
-   ...     "name": "Park Shereton",
-   ...     "available": "True",
-   ...     "price_per_night": "270",
-   ...     "email": "contact@shereton.com",
-   ...     "web": "www.shereton.com",
-   ...     "address": {
-   ...         "street": "128 George St",
-   ...         "city": "Sydney",
-   ...         "state": "TX",
-   ...         "zip": "2000"
-   ...     }
-   ... }
-   >>>
-   >>> schema = {
-   ...     "name": string,
-   ...     "available": boolean,
-   ...     "price_per_night": numeric,
-   ...     "email": email,
-   ...     "web": url,
-   ...     "address.street": string,
-   ...     "address.city": string,
-   ...     "address.state": {"ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"},
-   ...     "address.zip": integer
-   ... }
-   >>>
-   >>> pprint(validate(schema, hotel))
-   (False,
-    ['["address"]["state"] is failing to be enum of `{\'SA\', \'QLD\', \'NT\', '
-     "'TAS', 'VIC', 'WA', 'ACT', 'NSW'}`",
-     '["address"]["zip"] is failing to be `integer`',
-     '["available"] is failing to be `boolean`',
-     '["price_per_night"] is failing to be `numeric`'])
-
-7. Validating data types that accept parameters.
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Type functions can accept zero, one or more parameters. In such scenario
-the below syntax needs to be used ``()``. Let us try validating where
-the ``price_per_night`` must be multiple of 50. Also let us declare the
-Yelp review rating of a hotel must be between 1-5.
+Let us try validating where the ``price_per_night`` must be multiple of
+50. Also let us declare the Yelp review rating of a hotel must be
+between 1-5.
 
 .. code:: python
 
@@ -318,8 +323,8 @@ Yelp review rating of a hotel must be between 1-5.
 
    >>> schema = {
    ...     "name": string,
-   ...     "rating": (between, 1, 5),
-   ...     "price_per_night": (divisible, 50)
+   ...     "rating": between(1, 5),
+   ...     "price_per_night": divisible(50)
    ... }
    >>>
    >>> hotel = {
@@ -333,6 +338,19 @@ Yelp review rating of a hotel must be between 1-5.
        '["price_per_night"] is failing to be `divisible(50)`', 
        '["rating"] is failing to be `between(1, 5)`'
        ])
+
+For curiosity here is the implementation of ``divisible`` from Tissuebox
+library. It has been defined as a higher order function which returns
+another function which always accepts single parameter. While writing
+custom validators you are encouraged to use the same pattern.
+
+.. code:: python
+
+   def divisible(n):
+       def divisible(x):
+           return numeric(x) and numeric(n) and x % n == 0, "multiple of {}".format(n)
+
+       return divisible
 
 8. Combining multiple type_functions for same element
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -350,148 +368,50 @@ Assume that you are attempting to do something like this
        'name': string,
        'price_per_night': integer,
        'price_per_night': positive,
-       'price_per_night': (divisible, 50),
+       'price_per_night': divisible(50),
        "address.zip": integer
    }
 
-While this is a good intention since ``price_per_night`` cannot go
-negative in Python dict keys cannot be duplicated. This can be solved in
-two ways
+Here ``price_per_night`` will be overridden by the latest declaration
+which must be avoided. This can be solved with another special syntax
+which yet Pythonic
 
-1. Write a custom validator which takes care of the logic that is
-   performed by all the three functions as below
+Simply use ``()`` to chain type_functions.
 
-   .. code:: python
+::
 
-      from tissuebox.basic import divisible, integer, positive, string
+   ```python
+   from tissuebox.basic import divisible, integer, positive, string
 
-      def price_per_night(x):
-         return integer(x) and positive(x) and divisible(x, 50)
+   schema = {
+       'name': string,
+       'price_per_night': (integer, positive, divisible(50)),
+       "address.zip": integer
+   }
+   ```
 
-      schema = {
-          'name': string,
-          'price_per_night': price_per_night,
-          "address.zip": integer
-      }
+Now Tissuebox will iterate all these conditions against
+``price_per_night``
 
-2. While the above method would surely help the cleaner way to do that
-   is by chaining them under ``[]`` operator.
+9. Declaring a field as ``required``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-   .. code:: python
+While Tissuebox validates the values with type_functions, it only does
+so only for the values are found in the payload. Otherwise they were
+simply ignored silently.
 
-      from tissuebox.basic import divisible, integer, positive, string
-
-      schema = {
-          'name': string,
-          'price_per_night': [integer, positive, (divisible, 50)],
-          "address.zip": integer
-      }
-
-   .. rubric:: 9. Declaring a field as ``required``
-      :name: declaring-a-field-as-required
-
-All the fields that are declare in ``tissuebox`` schema are iteratively
-checked against the type_function defined in the schema. If an element
-is not found in the payload it gets skipped and ``tissuebox`` will not
-mark it as an error because the ``type_function`` is invoked if and only
-if when the element is found in the payload.
-
-If you want an element to be declared as mandatory then use the
-``required`` option in the schema.
-
-And it’s a common scenario to combine them under ``[]`` operator as
-described in the above topic.
+In a situation where a specific value is expected in payload declared
+them as ``required`` function. And it’s a common scenario to combine
+them under ``()`` operator as described in the above.
 
 .. code:: python
 
    from tissuebox.basic import integer, required, string
    schema = {
-       'name': [required, string],
-       "address.city": [required, string],
+       'name': (required, string),
+       "address.city": (required, string),
        "address.zip": integer
    }
-
-10. Arrays
-^^^^^^^^^^
-
-Arrays in Tissuebox are very intuitive to work with. Unlike other
-frameworks ``tissuebox`` doesn’t require us to declare ``many=True``.
-Instead it dynamically detects if the payload contains ``list`` and acts
-accordingly. - If a list is found then the given condition is checked
-against all the elements of the list. - Meaningful error messages are
-provided with exact index of the array element. - It is still possible
-to declare it as ``array`` while defining but there is not a need to do
-so and its something not usually recommended.
-
-Let’s consider a detailed payload & schema where payload contains few
-details of actors
-
-.. code:: python
-
-   from tissuebox import validate
-   from tissuebox.basic import integer, numeric, positive, required, string, url
-   payload = [
-       {
-           "name": "Tom Cruise",
-           "age": 56,
-           "birth_place": "Syracuse, NY",
-           "birth_date": "July 3, 1962",
-           "photo": "https://jsonformatter.org/img/tom-cruise.jpg",
-           "wife": None,
-           "weight": 67.5,
-           "has_children": True,
-           "has_greyhair": False,
-           "children": [
-               "Suri",
-               "Isabella Jane",
-               "Connor"
-           ]
-       },
-       {
-           "name": "Robert Downey Jr.",
-           "age": 53,
-           "birth_place": "New York City, NY",
-           "birth_date": "April 4, 1965",
-           "photo": "https://jsonformatter.org/img/Robert-Downey-Jr.jpg",
-           "wife": "Susan Downey",
-           "weight": 77.1,
-           "has_children": True,
-           "has_greyhair": False,
-           "children": [
-               "Indio Falconer",
-               ["bad value"],
-               "Avri Roel",
-               "Exton Elias"
-           ]
-       }
-   ]
-
-   schema = {
-       "name": string,
-       "age": [positive, integer],
-       "birth_place": string,
-       "photo": url,
-       "wife": [required, string],
-       "weight": [required, numeric],
-       "children": string
-   }
-
-   validate(schema, payload)
-
-Will output
-
-.. code:: python
-
-   (False, [
-       '[0]["wife"] is failing to be `string`', 
-       '[1]["children"][1] is failing to be `string`'
-   ])
-
-As noted above, ``"children": string`` means ``children`` must be either
-string or array of strings. We don’t have to declare that as array.
-Tissuebox will detect it dynamically and ensure whether all the elements
-fulfilling the condition. Also the error details received are helpful as
-they indicate failing indices.
 
 Tissuebox Advantages:
 ^^^^^^^^^^^^^^^^^^^^^
@@ -505,4 +425,5 @@ Tissuebox Advantages:
 -  Highly readable with concise schema definition.
 -  Highly extensible with ability to insert your own custom methods
    without complicated class inheritance.
+-  Ability to provide all the error messages upfront upon validation.
 
