@@ -1,10 +1,10 @@
-from tissuebox.basic import integer
+from tissuebox.basic import _integer
 
 def subscripts(X):
     # Receives an iterable and returns the string of array subscripts
-    ret = 'payload'
+    ret = ''
     for x in X:
-        if integer(x):
+        if _integer(x):
             ret += '[{}]'.format(x)
         else:
             ret += '["{}"]'.format(x)
