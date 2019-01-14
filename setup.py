@@ -1,11 +1,13 @@
 from distutils.core import setup
-
-with open("pypi.rst", "r") as fh:
+try:
+    fh = open("pypi.rst", "r")
     long_description = fh.read()
+except FileNotFoundError:
+    long_description = ""
 
 setup(
     name='tissuebox',
-    version='2019.01.13',
+    version='2019.01.17',
     description='Tissuebox :: Pythonic payload validator',
     author='nehem',
     long_description=long_description,

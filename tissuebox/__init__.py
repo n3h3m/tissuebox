@@ -1,4 +1,4 @@
-from tissuebox.basic import _primitive, primitive, required
+from tissuebox.basic import _primitive, allowed, denied, primitive, required
 from tissuebox.helpers import gattr, kgattr, ngattr, subscripts
 
 class SchemaError(BaseException):
@@ -7,9 +7,33 @@ class SchemaError(BaseException):
 def _tupled_schema(schema):
     new = dict()
 
-    for key in schema.keys():
+    for key in [k for k in schema.keys() if isinstance(k, str)]:
         left = tuple(key.split('.'))
         new[left] = schema[key]
+
+    return new
+
+def _expand_keys(keys, payload):
+    new = set()
+    to_remove = []
+
+    for key in keys:
+        for i in range(len(key)):
+            got = ngattr(payload, *key[:i])
+            if isinstance(got, list):
+                for j in range(len(got)):
+                    p = got[j]
+                    k = tuple(key[i:]),
+                    e = _expand_keys(k, p)
+
+                    for _key in e:
+                        new.add(tuple(key[:i]) + (j,) + _key)
+                to_remove.append(key)
+                break
+        new.add(key)
+
+    for tr in to_remove:
+        new.discard(tr)
 
     return new
 
@@ -41,17 +65,11 @@ def _expand_schema(schema, payload):
 
 def _validate_element(payload, key, value, errors):
     subs = subscripts(key)
-    sofar = []
 
     # Handle the required part
     try:
-        if value is required:
-            kgattr(payload, sofar, *key)
-            return
         elem = gattr(payload, *key)
     except (KeyError, TypeError):
-        if value is required:
-            errors.append(subscripts(sofar) + ' is required')
         return  # We only care about elements that are resolving properly, else simply continuing
 
     # Handle array part
@@ -139,11 +157,84 @@ def _validate_schema(schema):
 
     return not errors, errors
 
+def _find_keys(payload):
+    result = set()
+    if _primitive(payload):
+        return (),
+    if isinstance(payload, list):
+        for i in range(len(payload)):
+            item = payload[i]
+            for k in _find_keys(item):
+                result.add((i,) + k)
+        return result
+    if isinstance(payload, dict):
+        for key in payload.keys():
+            result.add((key,))
+
+    return result
+
 def validate(schema, payload):
+    errors = []
     if not isinstance(payload, list) and not isinstance(payload, dict):
         return False, ['Payload must be either list or dict']
 
-    errors = []
+    _required = schema.get(required)
+    if _required:
+        if not isinstance(_required, tuple) and not isinstance(_required, str):
+            raise SchemaError("`required` must be declared as a tuple or string. Incorrect value {}".format(_required))
+        if isinstance(_required, tuple):
+            _required = tuple(tuple(x.split('.')) for x in _required if isinstance(x, str))
+        else:
+            _required = (tuple(_required.split('.')),)
+
+        expanded = _expand_keys(_required, payload)
+
+        for key in expanded:
+            sofar = []
+            try:
+                kgattr(payload, sofar, *key)
+            except (KeyError, TypeError):
+                errors.append(subscripts(sofar) + ' is required')
+
+    _denied = schema.get(denied)
+    if _denied:
+        if not isinstance(_denied, tuple) and not isinstance(_denied, str):
+            raise SchemaError("`denied` must be declared as a tuple or string. Incorrect value {}".format(_denied))
+        if isinstance(_denied, tuple):
+            _denied = tuple(tuple(x.split('.')) for x in _denied if isinstance(x, str))
+        else:
+            _denied = (tuple(_denied.split('.')),)
+
+        expanded = _expand_keys(_denied, payload)
+
+        for key in expanded:
+            sofar = []
+            try:
+                kgattr(payload, sofar, *key)
+                errors.append(subscripts(sofar) + ' is not allowed')
+            except (KeyError, TypeError):
+                continue
+
+    _allowed = schema.get(allowed)
+    if _allowed:
+
+        if not isinstance(_allowed, tuple) and not isinstance(_allowed, str):
+            raise SchemaError("`allowed` must be declared as a tuple or string. Incorrect value {}".format(_allowed))
+
+        # By default everything is allowed. However existence of this list will make Tissuebox to validate strictly in the list
+        if isinstance(_allowed, tuple):
+            _allowed = tuple((x,) for x in _allowed if isinstance(x, str))
+        else:
+            _allowed = ((_allowed,),)
+
+        found_keys = _find_keys(payload)
+
+        # For each found_keys it must be declared in the `allowed` list
+        for found in found_keys:
+            _found = tuple(filter(lambda x: not isinstance(x, int), found))  # Removed the integer array indices before comparing
+            if _found not in _allowed:
+                errors.append(subscripts(found) + ' is not allowed')
+
     schema = _tupled_schema(schema)
 
     result, details = _validate_schema(schema)  # First validate the schema itself.

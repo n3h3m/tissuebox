@@ -78,6 +78,14 @@ def _primitive(x):
 def primitive(x):
     return type(x) in (int, float, bool, str), "a python primitive (int, float, bool, str)"
 
+def denied():
+    # Dummy function, doesn't do anything, but don't delete
+    pass
+
+def allowed():
+    # Dummy function, doesn't do anything, but don't delete
+    pass
+
 def required():
     # Dummy function, doesn't do anything, but don't delete
     pass
