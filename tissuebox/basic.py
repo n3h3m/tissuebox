@@ -90,6 +90,10 @@ def required():
     # Dummy function, doesn't do anything, but don't delete
     pass
 
+def allowed_full():
+    # Dummy function, doesn't do anything, but don't delete
+    pass
+
 def negative_integer(x):
     return integer(x) and x < 0, "a negative integer"
 

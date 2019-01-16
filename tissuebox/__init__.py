@@ -1,4 +1,4 @@
-from tissuebox.basic import _primitive, allowed, denied, primitive, required
+from tissuebox.basic import _primitive, allowed, allowed_full, denied, primitive, required
 from tissuebox.helpers import gattr, kgattr, ngattr, subscripts
 
 class SchemaError(BaseException):
@@ -157,19 +157,23 @@ def _validate_schema(schema):
 
     return not errors, errors
 
-def _find_keys(payload):
+def _find_keys(payload, nested=False):
     result = set()
     if _primitive(payload):
         return (),
     if isinstance(payload, list):
         for i in range(len(payload)):
             item = payload[i]
-            for k in _find_keys(item):
+            for k in _find_keys(item, nested):
                 result.add((i,) + k)
         return result
     if isinstance(payload, dict):
         for key in payload.keys():
-            result.add((key,))
+            if nested:
+                for k in _find_keys(payload[key], nested):
+                    result.add((key,) + k)
+            else:
+                result.add((key,))
 
     return result
 
@@ -234,6 +238,29 @@ def validate(schema, payload):
             _found = tuple(filter(lambda x: not isinstance(x, int), found))  # Removed the integer array indices before comparing
             if _found not in _allowed:
                 errors.append(subscripts(found) + ' is not allowed')
+
+    _allowed_full = schema.get(allowed_full)
+    if _allowed_full:
+
+        if not isinstance(_allowed_full, tuple) and not isinstance(_allowed_full, str):
+            raise SchemaError("`allowed_full` must be declared as a tuple or string. Incorrect value {}".format(_allowed_full))
+
+        # By default everything is allowed. However existence of this list will make Tissuebox to validate strictly in the list
+        if isinstance(_allowed_full, tuple):
+            _allowed_full = tuple((x,) for x in _allowed_full if isinstance(x, str))
+        else:
+            _allowed_full = ((_allowed_full,),)
+
+        found_keys = _find_keys(payload, nested=True)
+
+        # For each found_keys it must be declared in the `allowed_full` list
+        temp_list = []
+        for found in found_keys:
+            _found = tuple(filter(lambda x: not isinstance(x, int), found))  # Removed the integer array indices before comparing
+            if _found not in _allowed_full:
+                temp_list.append(subscripts(found))
+        if temp_list:
+            errors.append('The following are not allowed as per `allowed_full` declaration, {}'.format(', '.join(temp_list)))
 
     schema = _tupled_schema(schema)
 
