@@ -177,11 +177,7 @@ def _find_keys(payload, nested=False):
 
     return result
 
-def validate(schema, payload):
-    errors = []
-    if not isinstance(payload, list) and not isinstance(payload, dict):
-        return False, ['Payload must be either list or dict']
-
+def _handle_left_function(schema, payload, errors):
     _required = schema.get(required)
     if _required:
         if not isinstance(_required, tuple) and not isinstance(_required, str):
@@ -261,6 +257,21 @@ def validate(schema, payload):
                 temp_list.append(subscripts(found))
         if temp_list:
             errors.append('The following are not allowed as per `allowed_full` declaration, {}'.format(', '.join(temp_list)))
+
+def validate(schema, payload):
+    errors = []
+    if not isinstance(payload, list) and not isinstance(payload, dict):
+        return False, ['Payload must be either list or dict']
+
+    if isinstance(payload, list):
+        for i in range(len(payload)):
+            _errors = []
+            _handle_left_function(schema, payload[i], _errors)
+            for e in _errors:
+                errors.append("[{}]{}".format(i, e))
+            pass
+    else:
+        _handle_left_function(schema, payload, errors)
 
     schema = _tupled_schema(schema)
 
