@@ -78,6 +78,9 @@ def _validate_element(payload, key, value, errors):
             errors.append("{} is failing to be a list".format(subs))
             return
 
+        if not value:
+            return  # We can safely return, since elem is already array
+
         for i in range(len(elem)):
             _elem = elem[i]
             _value = value[0]

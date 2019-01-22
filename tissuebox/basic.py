@@ -1,6 +1,8 @@
 import re
 
 def rfc_datetime(x):
+    if not isinstance(x, str):
+        return False, "an rfc_datetime"
     return bool(re.match(r'([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(\.([0-9]+))?(Z|([+-][0-9]{2}):([0-9]{2}))', x)), "a valid RFC datetime"
 
 def numeric_string(x):
@@ -48,15 +50,21 @@ def string(x):
     return isinstance(x, str), "a string"
 
 def uuid4(x):
+    if not isinstance(x, str):
+        return False, "a valid uuid4"
     # https://stackoverflow.com/a/18359032/968442
     regex = re.compile('^[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}\Z', re.I)
     return bool(regex.match(x)), "a valid uuid4"
 
 def email(x):
+    if not isinstance(x, str):
+        return False, "a valid email"
     # https://emailregex.com/
     return bool(re.match(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)", x)), "a valid email"
 
 def url(x):
+    if not isinstance(x, str):
+        return False, "an url"
     # https://stackoverflow.com/a/17773849/968442
     return bool(re.match(r"(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9]\.[^\s]{2,})", x)), "a valid url"
 
