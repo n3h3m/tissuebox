@@ -1,4 +1,4 @@
-from tissuebox.basic import array, boolean, dictionary, integer, null, numeric, string
+from tissuebox.basic import array, boolean, complex_number, dictionary, integer, null, numeric, string
 from tissuebox.helpers import memoize
 
 class SchemaError(BaseException):
@@ -10,25 +10,45 @@ primitives = {
     bool: boolean,
     float: numeric,
     list: array,
+    set: array,
+    tuple: array,
     dict: dictionary,
     None: null,
+    complex: complex_number
 }
+
+def msg(schema):
+    if schema is None:
+        return 'null'
+    if primitive(schema):
+        return str(schema)
+    if primitive_type(schema):
+        schema = primitives[schema]
+    return schema.msg
+
+def primitive(schema):
+    global primitives
+    return type(schema) in primitives
+
+def primitive_type(schema):
+    global primitives
+    return schema in primitives
 
 def valid_schema(schema):
     global primitives
-    if isinstance(schema, list):
-        return all([valid_schema(s) for s in schema])  # If schema is list of schemas, UC#3
+    if type(schema) in (set, list, tuple):
+        return all([valid_schema(s) for s in schema])
+
+    if type(schema) in primitives:
+        return True
 
     if schema in primitives:
-        schema = primitives[schema]
+        return True
 
-    if not callable(schema):
-        return False
+    if callable(schema) and getattr(schema, 'msg', None):
+        return True
 
-    if not getattr(schema, 'msg'):
-        return False
-
-    return True
+    return False
 
 def validate(schema, payload, errors=None):
     if errors is None:
@@ -65,28 +85,42 @@ def validate(schema, payload, errors=None):
         raise SchemaError("Schema is invalid, Use SchemaInspector to debug the schema")
 
     if type(schema) is list:
-        # If schema is list then payload also must be list, otherwise immediately append error
+        # If schema is list then payload also must be list, otherwise immediately append error and return
         if type(payload) is not list:
             errors.append(f"`{payload}` must be list")
             return
 
-        schema = [primitives[s] if s in primitives else s for s in schema]
-
-        # All the elements of payload must fulfill any of an item in schema list
-        # i.e for the schema [int, str] a valid payload would be [1, 'hello', 3]
+        if len(schema) > 1:
+            schema = [set(schema)]
 
         for p in payload:
-            if not any([validate(s, p) for s in schema]):
-                if len(schema) > 1:
-                    errors.append(f"`{p}` must be either {', '.join([s.msg for s in schema[:-1]])+' or '+schema[-1].msg}")
-                else:
-                    errors.append(f"`{p}` must be {schema[0].msg}")
+            validate(schema[0], p, errors)
+
     else:
+        if type(schema) is set:
+            schema = list(schema)
+            if not any([validate(s, payload) for s in schema]):
+                if len(schema) > 1:
+                    errors.append(f"`{payload}` must be either {', '.join([msg(s) for s in schema[:-1]])} or {msg(schema[-1])}")
+                else:
+                    errors.append(f"`{payload}` must be {msg(schema[0])}")
+
+            errors = sorted(set(errors))
+            return not errors
+
         if schema in primitives:
             schema = primitives[schema]
-        result = schema(payload)
+
+        if callable(schema):
+            result = schema(payload)
+
+        if primitive(schema):
+            result = schema == payload
+
         if not result:
-            errors.append(f"`{payload}` must be {schema.msg}")
+            errors.append(f"`{payload}` must be {msg(schema)}")
 
     errors = sorted(set(errors))
     return not errors
+
+assert validate([{1, 2}], [1, 2, 2, 2, 1, 1, 1])

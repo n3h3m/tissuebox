@@ -329,6 +329,9 @@ schema = {
 - Ability to provide all the error messages upfront upon validation.
 
 #### Usecases
+0 - Tissuebox needs to support primitive literals
+- `validate(5, 5)` would be `True` while `validate(5, 4)` is `False`
+
 1 - Tissuebox needs to validate basic primitives, Supported primitives are `int`, `str`, `float`, `list`, `dict`, `Decimal`, `bool`, `None`
 - `validate(int, 5)` would return `True`
 - `validate(str, 'hello)` would return `True`
@@ -351,6 +354,15 @@ schema = {
 7 - Tissuebox needs to support tissues with parameters
 - `validate(lt(10), 9))` would return `True`
 
-7 - Tissuebox needs to support tissues with parameters
+8 - Tissuebox needs to support tissues with parameters
 - `validate(lt(10), 9))` would return `True`
 - `validate(lt(10), 11))` would return `False`
+
+9 - Tissuebox must support `{}` syntax which refers to `or` condition also should word for list
+- `validate({int, str}, 1)` is `True`
+- `validate({int, str}, 'Hello')` is `True`
+- `validate({int, str}, 1.1)` is `False`
+- `validate([{int, str}], [1, 2, 'hello', 'world'])` is `True`
+
+#### Later:
+- Add support for preemptive evaluation of schema, i.e (1,2) doesn't make sense, it would always be False. So evaluate once and cache it.

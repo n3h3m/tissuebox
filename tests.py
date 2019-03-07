@@ -11,53 +11,37 @@ class TestValidSchema(TestCase):
     def teardown(self):
         pass
 
-    def test_schema_is_int__ok(self):
-        schema = int
-        assert valid_schema(schema)
+    # All primitive literals are valid schemas
+    def test_schema_primitive_literals(self):
+        assert valid_schema(None)
+        assert valid_schema(True)
+        assert valid_schema(False)
+        assert valid_schema(-1)
+        assert valid_schema(0)
+        assert valid_schema(1)
+        assert valid_schema(1.1)
+        assert valid_schema(1e3)
+        assert valid_schema(3 + 4j)
+        assert valid_schema('hello')
+        assert valid_schema([])
+        assert valid_schema(())
+        assert valid_schema(set())
 
-    def test_schema_is_float__ok(self):
-        schema = float
-        assert valid_schema(schema)
-
-    def test_schema_is_str__ok(self):
-        schema = str
-        assert valid_schema(schema)
-
-    def test_schema_is_bool__ok(self):
-        schema = bool
-        assert valid_schema(schema)
-
-    def test_schema_is_None__ok(self):
-        schema = None
-        assert valid_schema(schema)
-
-    def test_schema_is_list__ok(self):
-        schema = list
-        assert valid_schema(schema)
-
-    def test_schema_is_dict__ok(self):
-        schema = dict
-        assert valid_schema(schema)
+    # All primitive types are valid schemas
+    def test_schema_primitive_types(self):
+        assert valid_schema(int)
+        assert valid_schema(str)
+        assert valid_schema(float)
+        assert valid_schema(list)
+        assert valid_schema(set)
+        assert valid_schema(dict)
+        assert valid_schema(tuple)
+        assert valid_schema(complex)
+        assert valid_schema(bool)
 
     def test_schema_is_list_of_mixed_primitives__ok(self):
         schema = [int, str, bool]
         assert valid_schema(schema)
-
-    def test_schema_is_string_literal__nok(self):
-        schema = 'hello'
-        assert not valid_schema(schema)
-
-    def test_schema_is_int_literal__nok(self):
-        schema = 10
-        assert not valid_schema(schema)
-
-    def test_schema_is_bool_literal__nok(self):
-        schema = False
-        assert not valid_schema(schema)
-
-    def test_schema_is_list_of_primitives_and_literals__nok(self):
-        schema = [int, 'hello', str, 5]
-        assert not valid_schema(schema)
 
     def test_schema_is_tissue__ok(self):
         s = email
@@ -71,9 +55,9 @@ class TestValidSchema(TestCase):
         s = [email, url, uuid4]
         assert valid_schema(s)
 
-    def test_schema_is_tissuelistmixed_literal__nok(self):
+    def test_schema_is_tissuelistmixed_literal_nok(self):
         s = [email, url, uuid4, 'hello']
-        assert not valid_schema(s)
+        assert valid_schema(s)
 
     def test_schema_is_tissues_mixed_with_primitives__ok(self):
         s = [email, url, uuid4, bool, integer, int, str]
@@ -242,7 +226,7 @@ class TestPrimitives(TestCase):
 
 class TestCauseSchemaError(TestCase):
     def test_schema_is_invalid(self):
-        schema = 5
+        schema = Decimal
         payload = 5
         self.assertRaises(SchemaError, validate, schema, payload)
 
@@ -278,7 +262,7 @@ class TestListOfPrimitives(TestCase):
         payload = ['hello', False, 5.5]
         errors = []
         assert not validate(schema, payload, errors)
-        assert "`5.5` must be either string, boolean, null or integer" in errors
+        assert '`5.5` must be either null, boolean, string or integer' in errors
 
 class TestTissues(TestCase):
     """
@@ -305,12 +289,7 @@ class TestTissues(TestCase):
         p = ['hello@world.com', 'world@hello.com', 'com']
         e = []
         assert not validate(s, p, e)
-        assert "`com` must be either a valid email or a valid url" in e
-
-class TestParameterizedTissues(TestCase):
-    """
-    Use case 7
-    """
+        assert '`com` must be either a valid url or a valid email' in e
 
     def test_schema_lt10(self):
         s = lt(10)
@@ -321,17 +300,41 @@ class TestParameterizedTissues(TestCase):
         assert not v(s, p, e)
         assert '`11` must be less than 10' in e
 
-    def test_schema_list_of_lt10(self):
         s = [lt(10)]
         p = 9
         e = []
         assert not v(s, p, e)
         assert '`9` must be list' in e
+
         p = [7, 8, 9]
         assert v(s, p)
+
         p = [7, 8, 9, 10, 11, 12]
         e = []
         assert not v(s, p, e)
         assert '`10` must be less than 10' in e
         assert '`11` must be less than 10' in e
         assert '`12` must be less than 10' in e
+
+class TestComplexSyntax(TestCase):
+    def test_curly_braces(self):
+        assert validate({1, 2}, 1)
+        assert validate({1, 2}, 2)
+
+        e = []
+        assert not validate({1, 2}, 3, e)
+        assert '`3` must be either 1 or 2' in e
+
+        assert validate([{1, 2}], [1, 2, 2, 2, 1, 1, 1])
+
+        e = []
+        assert not validate([{1, 2}], [1, 2, 3, 4], e)
+        assert '`3` must be either 1 or 2' in e
+        assert '`4` must be either 1 or 2' in e
+
+        assert validate([{int, str}], [1, 2, 'hello', 'world'])
+        assert not validate([{int, str}], [1, 2, 'hello', 'world', True])
+        assert not validate([{int, str}], [1, 2, 'hello', 'world', None])
+        assert not validate([{int, str}], [1, 2, 'hello', 'world', 3.8])
+        assert not validate([{int, str}], [1, 2, 'hello', 'world', 3.4j])
+        assert not validate([{int, str}], [1, 2, 'hello', 'world', str])

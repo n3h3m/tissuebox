@@ -17,6 +17,11 @@ def numeric(x):
 
 numeric.msg = "numeric"
 
+def complex_number(x):
+    return type(x) is complex
+
+complex_number.msg = 'complex number'
+
 def string(x):
     return isinstance(x, str)
 
