@@ -1,4 +1,4 @@
-from tissuebox.basic import _integer
+import jsonpickle
 
 def subscripts(X):
     # Receives an iterable and returns the string of array subscripts
@@ -29,26 +29,13 @@ def gattr(d, *attrs):
         d = d[at]
     return d
 
-def lgattr(d, *attrs):
-    try:
-        for at in attrs:
-            d = d[at]
-        return d
-    except KeyError:
-        return []
+def memoize(f):
+    memo = {}
 
-def sattr(d, *attrs):
-    try:
-        for attr in attrs[:-2]:
-            # If such key is not found or the value is primitive supply an empty dict
-            if d.get(attr) is None or not isinstance(d.get(attr), dict):
-                d[attr] = {}
-            d = d[attr]
-        d[attrs[-2]] = attrs[-1]
-    except IndexError:
-        print()
+    def inner(*args, **kwargs):
+        s = jsonpickle.dumps(args) + jsonpickle.dumps(kwargs)
+        if not s in memo:
+            memo[s] = f(*args, **kwargs)
+        return memo[s]
 
-def appendr(d, *attrs):
-    if not lgattr(d, attrs[:-1]):
-        sattr(d, *attrs[:-1], [])
-    lgattr(d, *attrs[:-1]).append(attrs[-1])
+    return inner

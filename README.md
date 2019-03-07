@@ -327,3 +327,20 @@ schema = {
 - Highly readable with concise schema definition. 
 - Highly extensible with ability to insert your own custom methods without complicated class inheritance. 
 - Ability to provide all the error messages upfront upon validation.
+
+#### Usecases
+1 - Tissuebox needs to validate basic primitives, Supported primitives are `int`, `str`, `float`, `list`, `dict`, `Decimal`, `bool`, `None`
+- `validate(int, 5)` would return `True`
+- `validate(str, 'hello)` would return `True`
+
+2 - Tissuebox needs to validate array of primitives
+- `valiate([int], [1,2,3])` would return `True`
+
+3 - Tissuebox needs to validate array of mixed primitives
+- `validate([int, str], [1, 'hello', 'world', 2, 3, 4])` would return `True`
+
+4 - Tissuebox needs to support tissues. A tissue is a tiny function which takes 'single' argument and returns a boolean
+
+5 - Tissuebox needs to support list of tissues
+
+6 - Tissuebox needs to support list of mixed tissues
