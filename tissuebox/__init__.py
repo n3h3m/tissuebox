@@ -1,21 +1,8 @@
-from decimal import Decimal
-
 from tissuebox.basic import array, boolean, dictionary, integer, null, numeric, string
 from tissuebox.helpers import memoize
 
 class SchemaError(BaseException):
     pass
-
-primitives_as_string = {
-    int: 'integer',
-    str: 'string',
-    bool: 'boolean',
-    float: 'numeric',
-    list: 'array',
-    dict: dictionary,
-    None: 'null',
-    Decimal: 'numeric'
-}
 
 primitives = {
     int: integer,
@@ -28,7 +15,7 @@ primitives = {
 }
 
 def valid_schema(schema):
-    global primitives, primitives_as_string
+    global primitives
     if isinstance(schema, list):
         return all([valid_schema(s) for s in schema])  # If schema is list of schemas, UC#3
 
@@ -47,7 +34,7 @@ def validate(schema, payload, errors=None):
     if errors is None:
         errors = []
 
-    global primitives, primitives_as_string
+    global primitives
     """
     Schema can be a primitives or a tissue
     e.g:
@@ -66,6 +53,13 @@ def validate(schema, payload, errors=None):
     [int, str] --> A list with mixed types, but only int or string allowed. [1, "hello"]
     [tissue] --> Value must be an array, And all array elements must be tissue compliant
     which meets tissue schema
+    
+    Schema can be tissues or list of tissues, list of mixed privitives and tissues
+    e.g
+    email -> 'hello@world.com'
+    url -> 'www.duck.com'
+    [email] --> ['hello@world.com, world@hello.com']
+    [url, email] --> ['www.duck.com', 'hello@world.com, world@hello.com']
     """
     if not valid_schema(schema):
         raise SchemaError("Schema is invalid, Use SchemaInspector to debug the schema")
@@ -73,8 +67,10 @@ def validate(schema, payload, errors=None):
     if type(schema) is list:
         # If schema is list then payload also must be list, otherwise immediately append error
         if type(payload) is not list:
-            errors.append(f"{payload} must be list")
+            errors.append(f"`{payload}` must be list")
             return
+
+        schema = [primitives[s] if s in primitives else s for s in schema]
 
         # All the elements of payload must fulfill any of an item in schema list
         # i.e for the schema [int, str] a valid payload would be [1, 'hello', 3]
@@ -82,11 +78,12 @@ def validate(schema, payload, errors=None):
         for p in payload:
             if not any([validate(s, p) for s in schema]):
                 if len(schema) > 1:
-                    errors.append(f"{p} must be either {', '.join([primitives_as_string[s] for s in schema[:-1]])+' or '+primitives_as_string[schema[-1]]}")
+                    errors.append(f"`{p}` must be either {', '.join([s.msg for s in schema[:-1]])+' or '+schema[-1].msg}")
                 else:
-                    errors.append(f"{p} must be {primitives_as_string[schema[0]]}")
+                    errors.append(f"`{p}` must be {schema[0].msg}")
     else:
-        schema = primitives[schema]
+        if schema in primitives:
+            schema = primitives[schema]
         result = schema(payload)
         if not result:
             errors.append(f"`{payload}` must be {schema.msg}")

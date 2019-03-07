@@ -340,7 +340,17 @@ schema = {
 - `validate([int, str], [1, 'hello', 'world', 2, 3, 4])` would return `True`
 
 4 - Tissuebox needs to support tissues. A tissue is a tiny function which takes 'single' argument and returns a boolean
+- `validate(email, 'hello@world.com)` would return `True`
 
 5 - Tissuebox needs to support list of tissues
+- `validate([email], ['hello@world.com', 'world@hello.com'])` would return `True`
 
 6 - Tissuebox needs to support list of mixed tissues
+- `validate([email, url], ['hello@world.com', 'world@hello.com', 'www.duck.com'])` would return `True`
+
+7 - Tissuebox needs to support tissues with parameters
+- `validate(lt(10), 9))` would return `True`
+
+7 - Tissuebox needs to support tissues with parameters
+- `validate(lt(10), 9))` would return `True`
+- `validate(lt(10), 11))` would return `False`

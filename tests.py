@@ -1,7 +1,8 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from tissuebox import SchemaError, valid_schema, validate
+from tissuebox import SchemaError, valid_schema, validate, validate as v
+from tissuebox.basic import email, integer, lt, url, uuid4
 
 class TestValidSchema(TestCase):
     def setup(self):
@@ -57,6 +58,26 @@ class TestValidSchema(TestCase):
     def test_schema_is_list_of_primitives_and_literals__nok(self):
         schema = [int, 'hello', str, 5]
         assert not valid_schema(schema)
+
+    def test_schema_is_tissue__ok(self):
+        s = email
+        assert valid_schema(s)
+
+    def test_schema_is_tissuelist__ok(self):
+        s = [email]
+        assert valid_schema(s)
+
+    def test_schema_is_tissuelistmixed__ok(self):
+        s = [email, url, uuid4]
+        assert valid_schema(s)
+
+    def test_schema_is_tissuelistmixed_literal__nok(self):
+        s = [email, url, uuid4, 'hello']
+        assert not valid_schema(s)
+
+    def test_schema_is_tissues_mixed_with_primitives__ok(self):
+        s = [email, url, uuid4, bool, integer, int, str]
+        assert valid_schema(s)
 
 class TestPrimitives(TestCase):
     def setup(self):
@@ -236,16 +257,16 @@ class TestListOfPrimitives(TestCase):
         payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         errors = []
         assert not validate(schema, payload, errors)
-        assert '1 must be string' in errors
-        assert '2 must be string' in errors
-        assert '10 must be string' in errors
+        assert '`1` must be string' in errors
+        assert '`2` must be string' in errors
+        assert '`10` must be string' in errors
 
     def test_schema_strlist_payload_not_a_list__nok(self):
         schema = [str]
         payload = 1
         errors = []
         assert not validate(schema, payload, errors)
-        assert '1 must be list' in errors
+        assert '`1` must be list' in errors
 
     def test_scheme_mixedlist_payload_within__ok(self):
         schema = [str, bool]
@@ -257,4 +278,60 @@ class TestListOfPrimitives(TestCase):
         payload = ['hello', False, 5.5]
         errors = []
         assert not validate(schema, payload, errors)
-        assert "5.5 must be either string, boolean, null or integer" in errors
+        assert "`5.5` must be either string, boolean, null or integer" in errors
+
+class TestTissues(TestCase):
+    """
+    Use cases 4, 5, 6
+    """
+
+    def test_schema_email_payload_email_ok(self):
+        s = email
+        p = 'hello@world.com'
+        assert validate(s, p)
+
+    def test_schema_emaillist_payload_emaillist_ok(self):
+        s = [email]
+        p = ['hello@world.com', 'world@hello.com']
+        assert validate(s, p)
+
+    def test_schema_mixedlist_payload_within__ok(self):
+        s = [email, str, int]
+        p = ['hello@world.com', 'world', 5]
+        assert validate(s, p)
+
+    def test_schema_mixedtissuelist_payload_outslidelist__nok(self):
+        s = [email, url]
+        p = ['hello@world.com', 'world@hello.com', 'com']
+        e = []
+        assert not validate(s, p, e)
+        assert "`com` must be either a valid email or a valid url" in e
+
+class TestParameterizedTissues(TestCase):
+    """
+    Use case 7
+    """
+
+    def test_schema_lt10(self):
+        s = lt(10)
+        p = 9
+        assert v(s, p)
+        p = 11
+        e = []
+        assert not v(s, p, e)
+        assert '`11` must be less than 10' in e
+
+    def test_schema_list_of_lt10(self):
+        s = [lt(10)]
+        p = 9
+        e = []
+        assert not v(s, p, e)
+        assert '`9` must be list' in e
+        p = [7, 8, 9]
+        assert v(s, p)
+        p = [7, 8, 9, 10, 11, 12]
+        e = []
+        assert not v(s, p, e)
+        assert '`10` must be less than 10' in e
+        assert '`11` must be less than 10' in e
+        assert '`12` must be less than 10' in e

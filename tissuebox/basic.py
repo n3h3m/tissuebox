@@ -1,6 +1,7 @@
+# Checks if the input is an int, bool is not allowed
+import re
 from decimal import Decimal
 
-# Checks if the input is an int, bool is not allowed
 def integer(x):
     if isinstance(x, bool):
         return False
@@ -41,9 +42,34 @@ def null(x):
 
 null.msg = "null"
 
+def uuid4(x):
+    if not isinstance(x, str):
+        return False
+    # https://stackoverflow.com/a/18359032/968442
+    regex = re.compile('^[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}\Z', re.I)
+    return bool(regex.match(x))
+
+uuid4.msg = 'a valid uuid'
+
+def email(x):
+    if not isinstance(x, str):
+        return False
+    # https://emailregex.com/
+    return bool(re.match(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)", x))
+
+email.msg = 'a valid email'
+
+def url(x):
+    if not isinstance(x, str):
+        return False
+    # https://stackoverflow.com/a/17773849/968442
+    return bool(re.match(r"(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9]\.[^\s]{2,})", x))
+
+url.msg = 'a valid url'
+
 def lt(n):
     def lt(x):
-        lt.msg = "less than {}".format(n)
         return x < n
 
+    lt.msg = "less than {}".format(n)
     return lt
