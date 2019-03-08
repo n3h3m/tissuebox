@@ -87,7 +87,7 @@ def validate(schema, payload, errors=None):
     if type(schema) is list:
         # If schema is list then payload also must be list, otherwise immediately append error and return
         if type(payload) is not list:
-            errors.append(f"`{payload}` must be list")
+            errors.append("`{}` must be list".format(payload))
             return
 
         if len(schema) > 1:
@@ -101,10 +101,17 @@ def validate(schema, payload, errors=None):
             schema = list(schema)
             if not any([validate(s, payload) for s in schema]):
                 if len(schema) > 1:
-                    errors.append(f"`{payload}` must be either {', '.join([msg(s) for s in schema[:-1]])} or {msg(schema[-1])}")
+                    errors.append("`{}` must be either {} or {}".format(payload, ', '.join([msg(s) for s in schema[:-1]]), msg(schema[-1])))
                 else:
-                    errors.append(f"`{payload}` must be {msg(schema[0])}")
+                    errors.append("`{}` must be {}".format(payload, msg(schema[0])))
 
+            errors = sorted(set(errors))
+            return not errors
+
+        if type(schema) is tuple:
+            for s in schema:
+                if not validate(s, payload):
+                    errors.append("`{}` must be {}".format(payload, msg(s)))
             errors = sorted(set(errors))
             return not errors
 
@@ -118,7 +125,7 @@ def validate(schema, payload, errors=None):
             result = schema == payload
 
         if not result:
-            errors.append(f"`{payload}` must be {msg(schema)}")
+            errors.append("`{}` must be {}".format(payload, msg(schema)))
 
     errors = sorted(set(errors))
     return not errors

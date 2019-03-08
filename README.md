@@ -358,11 +358,15 @@ schema = {
 - `validate(lt(10), 9))` would return `True`
 - `validate(lt(10), 11))` would return `False`
 
-9 - Tissuebox must support `{}` syntax which refers to `or` condition also should word for list
+9 - Tissuebox must support `{}` syntax which refers to `or` condition also should work for list
 - `validate({int, str}, 1)` is `True`
 - `validate({int, str}, 'Hello')` is `True`
 - `validate({int, str}, 1.1)` is `False`
 - `validate([{int, str}], [1, 2, 'hello', 'world'])` is `True`
+
+10 - Tissuebox must support `()` syntax which refers to `and` condition also should work for list
+- `validate((divisible(2), lt(10)), 4` is `True`
+- `validate([(divisible(2), lt(10))], [2, 4, 6, 8]` is `True`
 
 #### Later:
 - Add support for preemptive evaluation of schema, i.e (1,2) doesn't make sense, it would always be False. So evaluate once and cache it.

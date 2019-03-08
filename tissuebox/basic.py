@@ -76,5 +76,12 @@ def lt(n):
     def lt(x):
         return x < n
 
-    lt.msg = "less than {}".format(n)
+    lt.msg = f"less than {n}"
     return lt
+
+def divisible(n):
+    def divisible(x):
+        return numeric(x) and numeric(n) and x % n == 0
+
+    divisible.msg = f"multiple of {n}"
+    return divisible

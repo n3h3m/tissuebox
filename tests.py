@@ -2,7 +2,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from tissuebox import SchemaError, valid_schema, validate, validate as v
-from tissuebox.basic import email, integer, lt, url, uuid4
+from tissuebox.basic import divisible, email, integer, lt, url, uuid4
 
 class TestValidSchema(TestCase):
     def setup(self):
@@ -338,3 +338,27 @@ class TestComplexSyntax(TestCase):
         assert not validate([{int, str}], [1, 2, 'hello', 'world', 3.8])
         assert not validate([{int, str}], [1, 2, 'hello', 'world', 3.4j])
         assert not validate([{int, str}], [1, 2, 'hello', 'world', str])
+
+    def test_parentheses(self):
+        s = (divisible(2), lt(10))
+        assert validate(s, 4)
+
+        e = []
+        assert not validate(s, 5, e)
+        assert '`5` must be multiple of 2' in e
+
+        e = []
+        assert not validate(s, 11, e)
+        assert '`11` must be multiple of 2' in e
+        assert '`11` must be less than 10' in e
+
+        # Validate list of parentheses
+        assert validate([s], [2, 4, 6, 8])
+
+        e = []
+        assert not validate([s], [3, 13], e)
+        assert '`3` must be multiple of 2' in e
+        assert '`13` must be multiple of 2' in e
+        assert '`13` must be less than 10' in e
+
+        assert not validate([(bool, True)], [1, 2])  # 1 & 2 are not booleans
