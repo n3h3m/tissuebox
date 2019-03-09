@@ -4,6 +4,14 @@ from tissuebox.helpers import memoize
 class SchemaError(BaseException):
     pass
 
+def sort_unique(l):
+    # Removes duplicates and sorts
+    # Happens inplace
+    _l = sorted(set(l))
+    l.clear()
+    for s in _l:
+        l.append(s)
+
 primitives = {
     int: integer,
     str: string,
@@ -16,6 +24,12 @@ primitives = {
     None: null,
     complex: complex_number
 }
+
+def decorate(payload):
+    # Decorate the payload, i.e if string add quotations, if list add brackets
+    if type(payload) is str:
+        return "'{}'".format(payload)
+    return payload
 
 def msg(schema):
     if schema is None:
@@ -84,37 +98,55 @@ def validate(schema, payload, errors=None):
     if not valid_schema(schema):
         raise SchemaError("Schema is invalid, Use SchemaInspector to debug the schema")
 
-    if type(schema) is list:
+    if type(schema) is dict:
+        if type(payload) is not dict:
+            errors.append("must be dict")
+            return
+        for k in schema:
+            if type(k) is str:  # At the moment we only support string keys for dicts # Todo
+                if k not in payload:
+                    continue
+                E = []
+                validate(schema[k], payload.get(k), E)
+                for e in E:
+                    errors.append("['{}']{}".format(k, e))
+                    # errors.append("ᚏ['{}']{} but received {}".format(k, e.replace(re.findall(r'\(.*?)\', e)[0], '').replace('', ''), payload[k]))  # Handle this tidying up text later
+        sort_unique(errors)
+
+    elif type(schema) is list:
         # If schema is list then payload also must be list, otherwise immediately append error and return
         if type(payload) is not list:
-            errors.append("`{}` must be list".format(payload))
+            errors.append("{} must be list".format(payload))
             return
 
         if len(schema) > 1:
             schema = [set(schema)]
 
-        for p in payload:
-            validate(schema[0], p, errors)
+        for i, p in enumerate(payload):
+            E = []
+            validate(schema[0], p, E)
+            for e in E:
+                errors.append('[{}]{}'.format(i, e))
+
+    elif type(schema) is set:
+        schema = list(schema)
+        if not any([validate(s, payload) for s in schema]):
+            if len(schema) > 1:
+                errors.append(" must be either {} or {} (but {})".format(', '.join([msg(s) for s in schema[:-1]]), msg(schema[-1]), payload))
+            else:
+                errors.append("{} must be {}".format(payload, msg(schema[0])))
+
+        sort_unique(errors)
+        return not errors
+
+    elif type(schema) is tuple:
+        for s in schema:
+            if not validate(s, payload):
+                errors.append("{} must be {}".format(payload, msg(s)))
+        sort_unique(errors)
+        return not errors
 
     else:
-        if type(schema) is set:
-            schema = list(schema)
-            if not any([validate(s, payload) for s in schema]):
-                if len(schema) > 1:
-                    errors.append("`{}` must be either {} or {}".format(payload, ', '.join([msg(s) for s in schema[:-1]]), msg(schema[-1])))
-                else:
-                    errors.append("`{}` must be {}".format(payload, msg(schema[0])))
-
-            errors = sorted(set(errors))
-            return not errors
-
-        if type(schema) is tuple:
-            for s in schema:
-                if not validate(s, payload):
-                    errors.append("`{}` must be {}".format(payload, msg(s)))
-            errors = sorted(set(errors))
-            return not errors
-
         if schema in primitives:
             schema = primitives[schema]
 
@@ -125,9 +157,7 @@ def validate(schema, payload, errors=None):
             result = schema == payload
 
         if not result:
-            errors.append("`{}` must be {}".format(payload, msg(schema)))
+            errors.append(" must be {} (but {})".format(msg(schema), decorate(payload)))
 
-    errors = sorted(set(errors))
+    sort_unique(errors)
     return not errors
-
-assert validate([{1, 2}], [1, 2, 2, 2, 1, 1, 1])

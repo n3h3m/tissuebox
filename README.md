@@ -368,5 +368,62 @@ schema = {
 - `validate((divisible(2), lt(10)), 4` is `True`
 - `validate([(divisible(2), lt(10))], [2, 4, 6, 8]` is `True`
 
+11 - Tissuebox must support dict based schemas
+
+```python
+    s = {
+        'name': str,
+        'active': bool,
+        'age': int,
+        'pets': [str]
+    }
+    p = {
+        'name': 'Roger',
+        'active': True,
+        'age': 38,
+        'pets': ['Jimmy', 'Roger', 'Jessey']
+    }
+    validate(s, p)
+```
+
+would return `True`
+
+12 - Tissuebox must support sub schema, i.e schemas can be reused
+```python
+kid = {
+    'name': str,
+    'age': int,
+    'grade': int
+}
+schema = {
+    'name': str,
+    'active': bool,
+    'age': int,
+    'pets': [str],
+    'kids': [kid]
+}
+payload = {
+    'name': 'Roger',
+    'active': True,
+    'age': 38,
+    'pets': ['Jimmy', 'Roger', 'Jessey'],
+    'kids': [
+        {
+            'name': "Billy",
+            'age': 10,
+            'grade': 4
+        },
+        {
+            'name': "Christina",
+            'age': 13,
+            'grade': 8
+        }
+    ]
+}
+validate(schema, payload)
+```
+
+would return `True`
+
 #### Later:
 - Add support for preemptive evaluation of schema, i.e (1,2) doesn't make sense, it would always be False. So evaluate once and cache it.
