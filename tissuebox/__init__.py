@@ -1,16 +1,84 @@
 from tissuebox.basic import array, boolean, complex_number, dictionary, integer, null, numeric, string
-from tissuebox.helpers import memoize
+from tissuebox.helpers import exists, kgattr, sattr
 
 class SchemaError(BaseException):
     pass
 
 def sort_unique(l):
-    # Removes duplicates and sorts
-    # Happens inplace
-    _l = sorted(set(l))
-    l.clear()
-    for s in _l:
-        l.append(s)
+    l[:] = sorted(set(l))
+
+def normalise(schema):
+    """
+    Normalises a dot separated schema into nested schema.
+
+    Possible areas where dicts are possbiel
+        - A dict can be self
+        - A dict can be value of few other keys
+        - A dict can be an elements of an array where that array is a value of other keys
+        - A dict can be part of tuple, where that tuple can be part of another list
+
+    Pretty much think of going after all the complex syntax where any dict-tissue is possible
+    """
+
+    if type(schema) in [list, tuple, set]:
+        for s in schema:
+            normalise(s)
+
+    if type(schema) is dict:
+        for k in schema:
+            normalise(schema[k])
+
+        for k in list(schema.keys()):
+            if '.' not in k:
+                continue
+
+            splitted = k.split('.')
+            sofar = []
+            sch = schema
+
+            try:
+                for s in splitted:
+                    sch = sch[s]
+                    sofar.append(s)
+                # A successful completion means discrepancy
+                splitted.append(schema[k])
+                sofar.append(sch)
+                raise SchemaError("Can't normalise {} as it would override {}".format(splitted, sofar))
+            except TypeError:
+                sofar.append(sch)
+                raise SchemaError("Can't normalise {} as it conflicts with {}".format(splitted, sofar))
+            except KeyError:
+                # A good case requires KeyError
+                splitted.append(schema[k])
+                sattr(schema, *splitted)
+                del schema[k]
+
+# def dot_to_dict(schema):
+#     # Converts a dot separated schema into nested schema
+#     if type(schema) is not dict:
+#         return
+#
+#     dot_found = False
+#     for k in schema:
+#         if '.' in k:
+#             dot_found = True
+#             break
+#     if dot_found:
+#         splitted = k.split('.')
+#         head, tail = '.'.join(splitted[:-1]), splitted[-1]
+#
+#         if not schema.get(head):
+#             schema[head] = {}
+#         schema[head].update({tail: schema[k]})
+#         del schema[k]
+#
+#         if '*' in schema[head] and len(schema[head]) > 1:
+#             other_keys = [head + '.' + _k for _k in schema[head] if _k is not '*']
+#             raise SchemaError('Discrepancy in array declaration, `{}` conflicts with other keys {}'.format(k, other_keys))
+#             print()
+#
+#         dot_to_dict(schema)
+#     return
 
 primitives = {
     int: integer,
@@ -69,6 +137,8 @@ def validate(schema, payload, errors=None):
         errors = []
 
     global primitives
+
+    normalise(schema)
     """
     Schema can be a primitives or a tissue
     e.g:

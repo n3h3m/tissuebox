@@ -425,5 +425,19 @@ validate(schema, payload)
 
 would return `True`
 
+13 - Tissuebox would be able to handle dot `.` separated keys.
+In the above schema can be expressed using the below alternate syntax
+```python
+schema = {
+    'name': str,
+    'active': bool,
+    'age': int,
+    'pets': [str],
+    'kids.name': str,
+    'kids.age': int,
+    'kids.grade': int
+}
+```
+
 #### Later:
 - Add support for preemptive evaluation of schema, i.e (1,2) doesn't make sense, it would always be False. So evaluate once and cache it.

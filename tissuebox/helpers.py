@@ -1,41 +1,24 @@
-import jsonpickle
-
-def subscripts(X):
-    # Receives an iterable and returns the string of array subscripts
-    ret = ''
-    for x in X:
-        if _integer(x):
-            ret += '[{}]'.format(x)
-        else:
-            ret += '["{}"]'.format(x)
-    return ret
-
-def ngattr(d, *attrs):
+def exists(d, attrs):
     try:
         for at in attrs:
             d = d[at]
-        return d
+        return True
     except (KeyError, TypeError):
-        return None
+        return False
+
+def sattr(d, *attrs):
+    try:
+        for attr in attrs[:-2]:
+            if type(d.get(attr)) is not dict:
+                d[attr] = {}
+                # raise Exception("Overriding Attempt")
+            d = d[attr]
+        d[attrs[-2]] = attrs[-1]
+    except IndexError:
+        print()
 
 def kgattr(d, sofar, *attrs):
     # gattr but very strict, tries to go nested, upon KeyError return the sofar list.
     for at in attrs:
         sofar.append(at)
         d = d[at]
-
-def gattr(d, *attrs):
-    for at in attrs:
-        d = d[at]
-    return d
-
-def memoize(f):
-    memo = {}
-
-    def inner(*args, **kwargs):
-        s = jsonpickle.dumps(args) + jsonpickle.dumps(kwargs)
-        if not s in memo:
-            memo[s] = f(*args, **kwargs)
-        return memo[s]
-
-    return inner

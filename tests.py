@@ -1,8 +1,14 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from tissuebox import SchemaError, valid_schema, validate, validate as v
+from tissuebox import SchemaError, normalise, sort_unique, valid_schema, validate, validate as v
 from tissuebox.basic import divisible, email, integer, lt, url, uuid4
+
+class TestMiscellaneous(TestCase):
+    def test_sort_unique(self):
+        l = [4, 3, 2, 1, 1, 2, 3, 4]
+        sort_unique(l)
+        assert l == [1, 2, 3, 4]
 
 class TestValidSchema(TestCase):
     def setup(self):
@@ -441,4 +447,161 @@ class TestComplexSyntax(TestCase):
         payload['kids'][1]['sex'] = 'f'
         assert not validate(schema, payload, e)
         assert "['kids'][1]['sex'] must be either Female or Male (but f)" in e
+
+class TestDottedDicts(TestCase):
+    def test_dot_to_dict(self):
+        # Basic not-needed case
+        schema = {
+            'name': str,
+            'active': bool,
+            'age': int,
+        }
+        dot_to_dict(schema)
+        assert schema == {
+            'name': str,
+            'active': bool,
+            'age': int,
+        }
+
+        # Bit more realistic case
+        schema = {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'kid.name': str,
+            'kid.age': int,
+            'kid.grade': int,
+            'kid.phone.model': str,
+            'kid.phone.year': int,
+            'kid.phone.career': {'Verizon', 'AT & T', 'T-Mobile'},
+        }
+        dot_to_dict(schema)
+        assert schema == {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'kid': {
+                'name': str,
+                'age': int,
+                'grade': int,
+                'phone': {
+                    'model': str,
+                    'year': int,
+                    'career': {'Verizon', 'AT & T', 'T-Mobile'},
+                }
+            }
+        }
+
+        # Corner cases
+        schema = {}
+        dot_to_dict(schema)
+        assert schema == {}
+
+        schema = {
+            'names': []
+        }
+        dot_to_dict(schema)
+        assert schema == {
+            'names': []
+        }
+
+        schema = {
+            'names': [1, 2]
+        }
+        dot_to_dict(schema)
+        assert schema == {
+            'names': [1, 2]
+        }
+
+        schema = {
+            'names': {1, 2}
+        }
+        dot_to_dict(schema)
+        assert schema == {
+            'names': {1, 2}
+        }
+
+        schema = 5
+        dot_to_dict(schema)
+        assert schema == 5
+
+        schema = str
+        dot_to_dict(schema)
+        assert schema == str
+
+    def test_schema_dotted(self):
+        schema = {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'kid.name': str,
+            'kid.age': int,
+            'kid.grade': int,
+            'kid.phone.model': str,
+            'kid.phone.year': int,
+            'kid.phone.career': {'Verizon', 'AT & T', 'T-Mobile'},
+        }
+        payload = {
+            'name': 'Roger',
+            'active': False,
+            'age': 42,
+            'pets': ['Elise', 'Richard', 'Caprice'],
+            'kid': {
+                'name': 'Julia',
+                'age': 12,
+                'grade': 6,
+                'phone': {
+                    'model': 'iPhone X',
+                    'year': 2017,
+                    'career': 'Verizon',
+                }
+            }
+        }
+        validate(schema, payload)
+
+        # Send an incorrect career name
+        e = []
+        payload['kid']['phone']['career'] = 'X'
+        assert not validate(schema, payload, e)
+        assert "['kid']['phone']['career'] must be either" in e[0]
+
+class TestNormalise(TestCase):
+    # def test_exceptions(self):
+    #     schema = {
+    #         'name': str,
+    #         'active': bool,
+    #         'age': int,
+    #         'pets': [str],
+    #         'kids.name': str,
+    #         'kids.oor': str,
+    #         'kids.*.grade': int,
+    #         'kids.grade.marks': int,
+    #         'kids.age': str,
+    #     }
+    #
+    #     normalise(schema)
+    #
+    #     assert schema == {'name': str, 'active': bool, 'age': int, 'pets': [str], 'kids': {'name': str, 'oor': str, '*': {'grade': int}, 'grade': {'marks': int}, 'age': str}}
+    #
+    #     print()
+
+    def test_misc(self):
+        schema = {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'more':{
+                'kid.name': str,
+                'kid.age': int,
+                'kid.phone': bool,
+                'kid.phone.model': str,
+                'kid.phone.year': int,
+                'kid.phone.career': {'Verizon', 'AT & T', 'T-Mobile'},
+            }
+        }
+        normalise(schema)
         print()
