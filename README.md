@@ -353,22 +353,19 @@ schema = {
 
 7 - Tissuebox needs to support tissues with parameters
 - `validate(lt(10), 9))` would return `True`
-
-8 - Tissuebox needs to support tissues with parameters
-- `validate(lt(10), 9))` would return `True`
 - `validate(lt(10), 11))` would return `False`
 
-9 - Tissuebox must support `{}` syntax which refers to `or` condition also should work for list
+8 - Tissuebox must support `{}` syntax which refers to `or` condition also should work for list
 - `validate({int, str}, 1)` is `True`
 - `validate({int, str}, 'Hello')` is `True`
 - `validate({int, str}, 1.1)` is `False`
-- `validate([{int, str}], [1, 2, 'hello', 'world'])` is `True`
+- `validate([{int, str}], [1, 2, 'hello', 'world'])` is `True` # This is also usecase #3
 
-10 - Tissuebox must support `()` syntax which refers to `and` condition also should work for list
+9 - Tissuebox must support `()` syntax which refers to `and` condition also should work for list
 - `validate((divisible(2), lt(10)), 4` is `True`
 - `validate([(divisible(2), lt(10))], [2, 4, 6, 8]` is `True`
 
-11 - Tissuebox must support dict based schemas
+10 - Tissuebox must support dict based schemas
 
 ```python
     s = {
@@ -388,7 +385,7 @@ schema = {
 
 would return `True`
 
-12 - Tissuebox must support sub schema, i.e schemas can be reused
+11 - Tissuebox must support sub schema, i.e schemas can be reused
 ```python
 kid = {
     'name': str,
@@ -425,17 +422,17 @@ validate(schema, payload)
 
 would return `True`
 
-13 - Tissuebox would be able to handle dot `.` separated keys.
-In the above schema can be expressed using the below alternate syntax
+12 - Tissuebox would be able to handle dot `.` separated keys.
+The above schema can be expressed using the below alternate syntax, '*' indicates plural i.e an array
 ```python
 schema = {
     'name': str,
     'active': bool,
     'age': int,
     'pets': [str],
-    'kids.name': str,
-    'kids.age': int,
-    'kids.grade': int
+    'kids.*.name': str,
+    'kids.*.age': int,
+    'kids.*.grade': int
 }
 ```
 

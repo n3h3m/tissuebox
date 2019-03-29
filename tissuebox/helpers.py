@@ -1,3 +1,5 @@
+import re
+
 def exists(d, attrs):
     try:
         for at in attrs:
@@ -22,3 +24,6 @@ def kgattr(d, sofar, *attrs):
     for at in attrs:
         sofar.append(at)
         d = d[at]
+
+def regex_in(r, l):
+    return bool(list(filter(re.compile(r).match, l)))

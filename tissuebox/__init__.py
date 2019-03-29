@@ -1,17 +1,39 @@
 from tissuebox.basic import array, boolean, complex_number, dictionary, integer, null, numeric, string
 from tissuebox.helpers import exists, kgattr, sattr
 
+
 class SchemaError(BaseException):
     pass
+
 
 def sort_unique(l):
     l[:] = sorted(set(l))
 
-def normalise(schema):
+
+def aster_to_list(schema, start=None):
+    if start is None:
+        start = []
+
+    if type(schema) is dict:
+
+        if '*' in schema:
+            if len(schema) > 1:
+                raise SchemaError("Can't normalise {} as array as other keys ({}) are present".format(start + ['*'], schema.keys()))
+            return [schema['*']]
+        else:
+            for k in schema:
+                schema[k] = aster_to_list(schema[k])
+
+    return schema
+
+
+def normalise(schema, start=None):
+    if start is None:
+        start = []
     """
     Normalises a dot separated schema into nested schema.
 
-    Possible areas where dicts are possbiel
+    Possible areas where dicts are possible
         - A dict can be self
         - A dict can be value of few other keys
         - A dict can be an elements of an array where that array is a value of other keys
@@ -22,11 +44,11 @@ def normalise(schema):
 
     if type(schema) in [list, tuple, set]:
         for s in schema:
-            normalise(s)
+            normalise(s, start + [s])
 
     if type(schema) is dict:
         for k in schema:
-            normalise(schema[k])
+            normalise(schema[k], start + [k])
 
         for k in list(schema.keys()):
             if '.' not in k:
@@ -43,15 +65,16 @@ def normalise(schema):
                 # A successful completion means discrepancy
                 splitted.append(schema[k])
                 sofar.append(sch)
-                raise SchemaError("Can't normalise {} as it would override {}".format(splitted, sofar))
+                raise SchemaError("Can't normalise {} as it would override {}".format(start + splitted, start + sofar))
             except TypeError:
                 sofar.append(sch)
-                raise SchemaError("Can't normalise {} as it conflicts with {}".format(splitted, sofar))
+                raise SchemaError("Can't normalise {} as it conflicts with {}".format(start + splitted, start + sofar))
             except KeyError:
                 # A good case requires KeyError
                 splitted.append(schema[k])
                 sattr(schema, *splitted)
                 del schema[k]
+
 
 # def dot_to_dict(schema):
 #     # Converts a dot separated schema into nested schema
@@ -93,11 +116,13 @@ primitives = {
     complex: complex_number
 }
 
+
 def decorate(payload):
     # Decorate the payload, i.e if string add quotations, if list add brackets
     if type(payload) is str:
         return "'{}'".format(payload)
     return payload
+
 
 def msg(schema):
     if schema is None:
@@ -108,13 +133,16 @@ def msg(schema):
         schema = primitives[schema]
     return schema.msg
 
+
 def primitive(schema):
     global primitives
     return type(schema) in primitives
 
+
 def primitive_type(schema):
     global primitives
     return schema in primitives
+
 
 def valid_schema(schema):
     global primitives
@@ -131,6 +159,7 @@ def valid_schema(schema):
         return True
 
     return False
+
 
 def validate(schema, payload, errors=None):
     if errors is None:
@@ -183,6 +212,9 @@ def validate(schema, payload, errors=None):
                     # errors.append("ᚏ['{}']{} but received {}".format(k, e.replace(re.findall(r'\(.*?)\', e)[0], '').replace('', ''), payload[k]))  # Handle this tidying up text later
         sort_unique(errors)
 
+    elif schema == '*':
+        print()
+
     elif type(schema) is list:
         # If schema is list then payload also must be list, otherwise immediately append error and return
         if type(payload) is not list:
@@ -202,7 +234,8 @@ def validate(schema, payload, errors=None):
         schema = list(schema)
         if not any([validate(s, payload) for s in schema]):
             if len(schema) > 1:
-                errors.append(" must be either {} or {} (but {})".format(', '.join([msg(s) for s in schema[:-1]]), msg(schema[-1]), payload))
+                labels = sorted([msg(s) for s in schema])
+                errors.append(" must be either {} or {} (but {})".format(', '.join(labels[:-1]), labels[-1], payload))
             else:
                 errors.append("{} must be {}".format(payload, msg(schema[0])))
 
