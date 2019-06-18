@@ -85,3 +85,9 @@ def divisible(n):
 
     divisible.msg = f"multiple of {n}"
     return divisible
+
+def required():
+    pass  # Does nothing just a placeholder
+
+def denied():
+    pass  # Does nothing just a placeholder

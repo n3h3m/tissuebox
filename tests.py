@@ -4,13 +4,11 @@ from unittest import TestCase
 from tissuebox import SchemaError, normalise, sort_unique, valid_schema, validate, validate as v, aster_to_list
 from tissuebox.basic import divisible, email, integer, lt, url, uuid4
 
-
 class TestMiscellaneous(TestCase):
     def test_sort_unique(self):
         l = [4, 3, 2, 1, 1, 2, 3, 4]
         sort_unique(l)
         assert l == [1, 2, 3, 4]
-
 
 class TestValidSchema(TestCase):
     def setup(self):
@@ -70,7 +68,6 @@ class TestValidSchema(TestCase):
     def test_schema_is_tissues_mixed_with_primitives__ok(self):
         s = [email, url, uuid4, bool, integer, int, str]
         assert valid_schema(s)
-
 
 class TestPrimitives(TestCase):
     def setup(self):
@@ -233,13 +230,11 @@ class TestPrimitives(TestCase):
         payload = 'hello'
         assert not validate(schema, payload)
 
-
 class TestCauseSchemaError(TestCase):
     def test_schema_is_invalid(self):
         schema = Decimal
         payload = 5
         self.assertRaises(SchemaError, validate, schema, payload)
-
 
 class TestListOfPrimitives(TestCase):
     def test_schema_list_int_payload_list_int(self):
@@ -274,7 +269,6 @@ class TestListOfPrimitives(TestCase):
         errors = []
         assert not validate(schema, payload, errors)
         # assert '5.5 must be either null, boolean, string or integer' in errors
-
 
 class TestTissues(TestCase):
     """
@@ -328,7 +322,6 @@ class TestTissues(TestCase):
         # assert '11 must be less than 10' in e
         # assert '12 must be less than 10' in e
 
-
 class TestComplexSyntax(TestCase):
     def test_curly_braces(self):
         assert validate({1, 2}, 1)
@@ -341,11 +334,13 @@ class TestComplexSyntax(TestCase):
         assert validate([{1, 2}], [1, 2, 2, 2, 1, 1, 1])
 
         e = []
-        assert not validate([{1, 2}], [1, 2, 3, 4], e)
-        # assert '3 must be either 1 or 2' in e
-        # assert '4 must be either 1 or 2' in e
-
-        assert validate([{int, str}], [1, 2, 'hello', 'world'])
+        assert not validate([{1, 2}], [1, 2, 3, 4, 15], e)
+        assert e == [
+            '[2] must be either 1 or 2 (but 3)',
+            '[3] must be either 1 or 2 (but 4)',
+            '[4] must be either 1 or 2 (but 15)'
+        ]
+        assert validate([{int, str}], [1, 'hello', 2, 'world'])
         assert not validate([{int, str}], [1, 2, 'hello', 'world', True])
         assert not validate([{int, str}], [1, 2, 'hello', 'world', None])
         assert not validate([{int, str}], [1, 2, 'hello', 'world', 3.8])
@@ -456,7 +451,6 @@ class TestComplexSyntax(TestCase):
         payload['kids'][1]['sex'] = 'f'
         assert not validate(schema, payload, e)
         assert "['kids'][1]['sex'] must be either Female or Male (but f)" in e
-
 
 class TestNormalise(TestCase):
     def test_normalise_basics(self):
@@ -592,6 +586,102 @@ class TestNormalise(TestCase):
             }
         }
         normalise(schema)
-        assert schema == {'name': str, 'active': bool, 'age': int, 'pets': [str], 'more': {'kid': {'name': str, 'age': int, 'phones': {'*': {'model': str, 'year': int, 'career': {'Verizon', 'T-Mobile', 'AT & T'}}}}}}
+        assert schema == {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'more': {
+                'kid': {
+                    'name': str,
+                    'age': int,
+                    'phones': {
+                        '*': {
+                            'model': str,
+                            'year': int,
+                            'career': {'Verizon', 'T-Mobile', 'AT & T'}
+                        }
+                    }
+                }
+            }
+        }
         schema = aster_to_list(schema)
-        assert schema == {'name': str, 'active': bool, 'age': int, 'pets': [str], 'more': {'kid': {'name': str, 'age': int, 'phones': [{'model': str, 'year': int, 'career': {'Verizon', 'T-Mobile', 'AT & T'}}]}}}
+        assert schema == {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'more': {
+                'kid': {
+                    'name': str,
+                    'age': int,
+                    'phones': [
+                        {
+                            'model': str,
+                            'year': int,
+                            'career': {'Verizon', 'T-Mobile', 'AT & T'}
+                        }
+                    ]
+                }
+            }
+        }
+
+        # Corner case
+        schema = {
+            'kid.name': str,
+            'kid.friends.*': str,  # In this case '*' is enough to justify that 'kid.friends' is a string array
+        }
+        normalise(schema)
+        schema = aster_to_list(schema)
+        assert schema == {
+            'kid': {
+                'name': str,
+                'friends': [str]
+            }
+        }
+
+    def test_dotted_asterisk(self):
+        schema = {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'kid.name': str,
+            'kid.age': int,
+            'kid.phones.*.model': str,
+            'kid.phones.*.year': int,
+            'kid.phones.*.career': {'Verizon', 'AT & T', 'T-Mobile'}
+        }
+
+        payload = {
+            'name': 'Roger',
+            'active': False,
+            'age': 42,
+            'pets': ['Elise', 'Richard', 'Caprice'],
+            'kid': {
+                'name': 'Julia',
+                'age': 12,
+                'grade': 6,
+                'phones': [
+                    {
+                        'model': 'iPhone X',
+                        'year': 2017,
+                        'career': 'Verizon',
+                    },
+                    {
+                        'model': 'iPhone XS',
+                        'year': 2019,
+                        'career': 'Verizon',
+                    },
+                    {
+                        'model': 'Huawei P30',
+                        'year': 2019,
+                        'career': 'Vodafone',
+                    }
+                ]
+            }
+        }
+
+        e = []
+        assert not validate(schema, payload, e)
+        assert '[\'kid\'][\'phones\'][2][\'career\'] must be either' in e[0]

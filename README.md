@@ -17,11 +17,11 @@ Assume the incoming JSON object or a python dict which contains hotel details an
 
 ```python
 payload = {
-    "name": "Park Shereton",
+    "name": "Park Sheraton",
     "available": True,
     "price_per_night": 270,
-    "email": "contact@shereton.com",
-    "web": "www.shereton.com",
+    "email": "contact@sheraton.com",
+    "web": "www.sheraton.com",
 }
 ```
 
@@ -355,7 +355,7 @@ schema = {
 - `validate(lt(10), 9))` would return `True`
 - `validate(lt(10), 11))` would return `False`
 
-8 - Tissuebox must support `{}` syntax which refers to `or` condition also should work for list
+8 - Tissuebox must support `{}` syntax which refers to `or` condition also should work for list. This syntax is inspired to facilitate enums
 - `validate({int, str}, 1)` is `True`
 - `validate({int, str}, 'Hello')` is `True`
 - `validate({int, str}, 1.1)` is `False`
@@ -436,5 +436,28 @@ schema = {
 }
 ```
 
+13 - Tissuebox must have option to declare `required`
+```python
+s = {
+    required: 'age',
+    'name': str,
+    'active': bool,
+    'age': int,
+    'pets': [str],
+    'kids.*.name': str,
+    'kids.*.age': int,
+    'kids.*.grade': int
+}
+p = {
+'name':'Peter',
+'active':True
+}
+```
+
+would result `False` since `age` is declared as required field
+
 #### Later:
 - Add support for preemptive evaluation of schema, i.e (1,2) doesn't make sense, it would always be False. So evaluate once and cache it.
+
+#### Advantages:
+- Schemas are just like everyday objects, Primitive `5` is a schema, built-in method `str` is a schema. There are no class involved to declare a schema, no unwanted inheritance play here. 
