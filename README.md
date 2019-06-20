@@ -422,7 +422,37 @@ validate(schema, payload)
 
 would return `True`
 
-12 - Tissuebox would be able to handle dot `.` separated keys.
+11.A Tissuebox must support non-string keys for dicts
+```python
+kid = {
+    'name': str,
+    1: str
+}
+schema = {
+    'name': str,
+    1: bool,
+    'kids': [kid]
+}
+payload = {
+    'name': 'Roger',
+    1: True,
+    'kids': [
+        {
+            'name': "Silly",
+            1: "HW",
+        },
+        {
+            'name': "Billy",
+            1: "Hello World",
+        },
+    ]
+}
+validate(schema, payload)
+```
+
+would return `True`
+
+12 - For dict schemas Tissuebox would be able to handle dot `.` separated keys.
 The above schema can be expressed using the below alternate syntax, '*' indicates plural i.e an array
 ```python
 schema = {
@@ -453,8 +483,25 @@ p = {
 'active':True
 }
 ```
-
 would result `False` since `age` is declared as required field
+
+14 - For dict schemas Tissuebox keys must facilitate support functions. 
+A support function is a method that takes two parameters `payload` and `key`
+The `key` must be stringThe incoming params of a support function MUST be strings, because they are the keys of the payload
+When the support function get zero argument, the whole payload is the value
+A support function must return a hashable value, which is essentials because
+    - Python's dict key must be hashable
+    - Memoization is used which relies on the whole dict in serializable format.
+```python
+s = {
+    'kids':[],
+    length('kids'): lt(5)
+}
+p = {
+'name':'Peter',
+'active':True
+}
+```
 
 #### Later:
 - Add support for preemptive evaluation of schema, i.e (1,2) doesn't make sense, it would always be False. So evaluate once and cache it.

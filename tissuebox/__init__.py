@@ -47,6 +47,10 @@ def normalise(schema, start=None):
             normalise(schema[k], start + [k])
 
         for k in list(schema.keys()):
+
+            if type(k) is not str:
+                continue
+
             if '.' not in k:
                 continue
 
@@ -165,14 +169,12 @@ def validate(schema, payload, errors=None):
             errors.append("must be dict")
             return
         for k in schema:
-            if type(k) is str:  # At the moment we only support string keys for dicts # Todo
-                if k not in payload:
-                    continue
-                E = []
-                validate(schema[k], payload.get(k), E)
-                for e in E:
-                    errors.append("['{}']{}".format(k, e))
-                    # errors.append("ᚏ['{}']{} but received {}".format(k, e.replace(re.findall(r'\(.*?)\', e)[0], '').replace('', ''), payload[k]))  # Handle this tidying up text later
+            if k not in payload:
+                continue
+            E = []
+            validate(schema[k], payload.get(k), E)
+            for e in E:
+                errors.append("[{}]{}".format(decorate(k), e))
         sort_unique(errors)
 
     elif schema == '*':

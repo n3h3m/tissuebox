@@ -452,6 +452,38 @@ class TestComplexSyntax(TestCase):
         assert not validate(schema, payload, e)
         assert "['kids'][1]['sex'] must be either Female or Male (but f)" in e
 
+    def test_nonstring_keys(self):
+        kid = {
+            'name': str,
+            1: str
+        }
+        schema = {
+            'name': str,
+            1: bool,
+            'kids': [kid]
+        }
+        payload = {
+            'name': 'Roger',
+            1: True,
+            'kids': [
+                {
+                    'name': "Silly",
+                    1: "HW",
+                },
+                {
+                    'name': "Billy",
+                    1: "Hello World",
+                },
+            ]
+        }
+        assert validate(schema, payload)
+
+        # Change the payload to cause an error
+        payload['kids'][0][1] = 10
+        e = []
+        assert not validate(schema, payload, e)
+        assert e == ["['kids'][0][1] must be string (but 10)"]
+
 class TestNormalise(TestCase):
     def test_normalise_basics(self):
         schema = {
