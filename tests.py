@@ -717,3 +717,43 @@ class TestNormalise(TestCase):
         e = []
         assert not validate(schema, payload, e)
         assert '[\'kid\'][\'phones\'][2][\'career\'] must be either' in e[0]
+
+# class TestRequiredDenied(TestCase):
+#     def test_required(self):
+#         s = {
+#             required: 'age',
+#             'name': str,
+#         }
+#         p = {
+#             'name': 'Peter',
+#             'active': True
+#         }
+#         assert not validate(s, p)
+class TestSchemaError(TestCase):
+    def test_dotted_override(self):
+        schema = {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'kid.name': str,
+            'kid.name.first': str  # This line means 'kid.name' is a dict{} however the previous line claims 'kid.name' is a `str`, which is a conflict, expect SchemaError
+        }
+
+        with self.assertRaises(SchemaError):
+            validate(schema, None)
+
+        schema = {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'kid.name.first': str,
+            'kid.name': str,  # Same case as above, this time this line has the chance to override previously declared deeper schema. Expect SchemaError
+            # i.e 'kid.name.first' is already declared as `str`, now while declaring `'kid.name` as something else Tissuebox MUST NOT override the previous and MUST detect the conflict.
+        }
+
+        # Warning: Depending on the run time this test might fail, because it depends on the order where Python iterates the key. In both the scenarios SchemaError is expected.
+        # Once a while manually run these cases while enabling debugger
+        with self.assertRaises(SchemaError):
+            validate(schema, None)
