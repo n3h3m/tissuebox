@@ -718,17 +718,6 @@ class TestNormalise(TestCase):
         assert not validate(schema, payload, e)
         assert '[\'kid\'][\'phones\'][2][\'career\'] must be either' in e[0]
 
-# class TestRequiredDenied(TestCase):
-#     def test_required(self):
-#         s = {
-#             required: 'age',
-#             'name': str,
-#         }
-#         p = {
-#             'name': 'Peter',
-#             'active': True
-#         }
-#         assert not validate(s, p)
 class TestSchemaError(TestCase):
     def test_dotted_override(self):
         schema = {
@@ -755,5 +744,30 @@ class TestSchemaError(TestCase):
 
         # Warning: Depending on the run time this test might fail, because it depends on the order where Python iterates the key. In both the scenarios SchemaError is expected.
         # Once a while manually run these cases while enabling debugger
+        with self.assertRaises(SchemaError):
+            validate(schema, None)
+
+    def test_starred_override(self):
+        schema = {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'kids.*.name.': str,
+            'kids': str
+        }
+
+        with self.assertRaises(SchemaError):
+            validate(schema, None)
+
+        schema = {
+            'name': str,
+            'active': bool,
+            'age': int,
+            'pets': [str],
+            'kids.*.name.': str,
+            'kids.hello.world': str
+        }
+
         with self.assertRaises(SchemaError):
             validate(schema, None)
