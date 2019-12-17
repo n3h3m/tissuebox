@@ -1,27 +1,14 @@
 from tissuebox.basic import array, boolean, complex_number, dictionary, integer, null, numeric, string
 from tissuebox.helpers import exists, kgattr, sattr
 
+
 class SchemaError(BaseException):
     pass
+
 
 def sort_unique(l):
     l[:] = sorted(set(l))
 
-def aster_to_list(schema, start=None):
-    if start is None:
-        start = []
-
-    if type(schema) is dict:
-
-        if '*' in schema:
-            if len(schema) > 1:
-                raise SchemaError("Can't normalise {} as array as other keys ({}) are present".format(start + ['*'], schema.keys()))
-            return [schema['*']]
-        else:
-            for k in schema:
-                schema[k] = aster_to_list(schema[k])
-
-    return schema
 
 def normalise(schema, start=None):
     if start is None:
@@ -47,10 +34,6 @@ def normalise(schema, start=None):
             normalise(schema[k], start + [k])
 
         for k in list(schema.keys()):
-
-            if type(k) is not str:
-                continue
-
             if '.' not in k:
                 continue
 
@@ -75,6 +58,36 @@ def normalise(schema, start=None):
                 sattr(schema, *splitted)
                 del schema[k]
 
+        if '*' in schema and len(schema) > 1:
+            raise SchemaError("Can't normalise {} as it contains more elements{} than expected".format(start + ['*'], schema.keys()))
+
+# def dot_to_dict(schema):
+#     # Converts a dot separated schema into nested schema
+#     if type(schema) is not dict:
+#         return
+#
+#     dot_found = False
+#     for k in schema:
+#         if '.' in k:
+#             dot_found = True
+#             break
+#     if dot_found:
+#         splitted = k.split('.')
+#         head, tail = '.'.join(splitted[:-1]), splitted[-1]
+#
+#         if not schema.get(head):
+#             schema[head] = {}
+#         schema[head].update({tail: schema[k]})
+#         del schema[k]
+#
+#         if '*' in schema[head] and len(schema[head]) > 1:
+#             other_keys = [head + '.' + _k for _k in schema[head] if _k is not '*']
+#             raise SchemaError('Discrepancy in array declaration, `{}` conflicts with other keys {}'.format(k, other_keys))
+#             print()
+#
+#         dot_to_dict(schema)
+#     return
+
 primitives = {
     int: integer,
     str: string,
@@ -88,11 +101,13 @@ primitives = {
     complex: complex_number
 }
 
+
 def decorate(payload):
     # Decorate the payload, i.e if string add quotations, if list add brackets
     if type(payload) is str:
         return "'{}'".format(payload)
     return payload
+
 
 def msg(schema):
     if schema is None:
@@ -103,13 +118,16 @@ def msg(schema):
         schema = primitives[schema]
     return schema.msg
 
+
 def primitive(schema):
     global primitives
     return type(schema) in primitives
 
+
 def primitive_type(schema):
     global primitives
     return schema in primitives
+
 
 def valid_schema(schema):
     global primitives
@@ -127,12 +145,14 @@ def valid_schema(schema):
 
     return False
 
+
 def validate(schema, payload, errors=None):
     if errors is None:
         errors = []
 
     global primitives
 
+    normalise(schema)
     """
     Schema can be a primitives or a tissue
     e.g:
@@ -159,8 +179,6 @@ def validate(schema, payload, errors=None):
     [email] --> ['hello@world.com, world@hello.com']
     [url, email] --> ['www.duck.com', 'hello@world.com, world@hello.com']
     """
-    normalise(schema)
-    schema = aster_to_list(schema)
     if not valid_schema(schema):
         raise SchemaError("Schema is invalid, Use SchemaInspector to debug the schema")
 
@@ -169,12 +187,14 @@ def validate(schema, payload, errors=None):
             errors.append("must be dict")
             return
         for k in schema:
-            if k not in payload:
-                continue
-            E = []
-            validate(schema[k], payload.get(k), E)
-            for e in E:
-                errors.append("[{}]{}".format(decorate(k), e))
+            if type(k) is str:  # At the moment we only support string keys for dicts # Todo
+                if k not in payload:
+                    continue
+                E = []
+                validate(schema[k], payload.get(k), E)
+                for e in E:
+                    errors.append("['{}']{}".format(k, e))
+                    # errors.append("ᚏ['{}']{} but received {}".format(k, e.replace(re.findall(r'\(.*?)\', e)[0], '').replace('', ''), payload[k]))  # Handle this tidying up text later
         sort_unique(errors)
 
     elif schema == '*':

@@ -17,11 +17,11 @@ Assume the incoming JSON object or a python dict which contains hotel details an
 
 ```python
 payload = {
-    "name": "Park Sheraton",
+    "name": "Park Shereton",
     "available": True,
     "price_per_night": 270,
-    "email": "contact@sheraton.com",
-    "web": "www.sheraton.com",
+    "email": "contact@shereton.com",
+    "web": "www.shereton.com",
 }
 ```
 
@@ -353,19 +353,22 @@ schema = {
 
 7 - Tissuebox needs to support tissues with parameters
 - `validate(lt(10), 9))` would return `True`
+
+8 - Tissuebox needs to support tissues with parameters
+- `validate(lt(10), 9))` would return `True`
 - `validate(lt(10), 11))` would return `False`
 
-8 - Tissuebox must support `{}` syntax which refers to `or` condition also should work for list. This syntax is inspired to facilitate enums
+9 - Tissuebox must support `{}` syntax which refers to `or` condition also should work for list
 - `validate({int, str}, 1)` is `True`
 - `validate({int, str}, 'Hello')` is `True`
 - `validate({int, str}, 1.1)` is `False`
-- `validate([{int, str}], [1, 2, 'hello', 'world'])` is `True` # This is also usecase #3
+- `validate([{int, str}], [1, 2, 'hello', 'world'])` is `True`
 
-9 - Tissuebox must support `()` syntax which refers to `and` condition also should work for list
+10 - Tissuebox must support `()` syntax which refers to `and` condition also should work for list
 - `validate((divisible(2), lt(10)), 4` is `True`
 - `validate([(divisible(2), lt(10))], [2, 4, 6, 8]` is `True`
 
-10 - Tissuebox must support dict based schemas
+11 - Tissuebox must support dict based schemas
 
 ```python
     s = {
@@ -385,7 +388,7 @@ schema = {
 
 would return `True`
 
-11 - Tissuebox must support sub schema, i.e schemas can be reused
+12 - Tissuebox must support sub schema, i.e schemas can be reused
 ```python
 kid = {
     'name': str,
@@ -422,89 +425,19 @@ validate(schema, payload)
 
 would return `True`
 
-11.A Tissuebox must support non-string keys for dicts
-```python
-kid = {
-    'name': str,
-    1: str
-}
-schema = {
-    'name': str,
-    1: bool,
-    'kids': [kid]
-}
-payload = {
-    'name': 'Roger',
-    1: True,
-    'kids': [
-        {
-            'name': "Silly",
-            1: "HW",
-        },
-        {
-            'name': "Billy",
-            1: "Hello World",
-        },
-    ]
-}
-validate(schema, payload)
-```
-
-would return `True`
-
-12 - For dict schemas Tissuebox would be able to handle dot `.` separated keys.
-The above schema can be expressed using the below alternate syntax, '*' indicates plural i.e an array
+13 - Tissuebox would be able to handle dot `.` separated keys.
+In the above schema can be expressed using the below alternate syntax
 ```python
 schema = {
     'name': str,
     'active': bool,
     'age': int,
     'pets': [str],
-    'kids.*.name': str,
-    'kids.*.age': int,
-    'kids.*.grade': int
-}
-```
-
-13 - Tissuebox must have option to declare `required`
-```python
-s = {
-    required: 'age',
-    'name': str,
-    'active': bool,
-    'age': int,
-    'pets': [str],
-    'kids.*.name': str,
-    'kids.*.age': int,
-    'kids.*.grade': int
-}
-p = {
-'name':'Peter',
-'active':True
-}
-```
-would result `False` since `age` is declared as required field
-
-14 - For dict schemas Tissuebox keys must facilitate support functions. 
-A support function is a method that takes two parameters `payload` and `key`
-The `key` must be stringThe incoming params of a support function MUST be strings, because they are the keys of the payload
-When the support function get zero argument, the whole payload is the value
-A support function must return a hashable value, which is essentials because
-    - Python's dict key must be hashable
-    - Memoization is used which relies on the whole dict in serializable format.
-```python
-s = {
-    'kids':[],
-    length('kids'): lt(5)
-}
-p = {
-'name':'Peter',
-'active':True
+    'kids.name': str,
+    'kids.age': int,
+    'kids.grade': int
 }
 ```
 
 #### Later:
 - Add support for preemptive evaluation of schema, i.e (1,2) doesn't make sense, it would always be False. So evaluate once and cache it.
-
-#### Advantages:
-- Schemas are just like everyday objects, Primitive `5` is a schema, built-in method `str` is a schema. There are no class involved to declare a schema, no unwanted inheritance play here. 

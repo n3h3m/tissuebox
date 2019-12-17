@@ -1,14 +1,17 @@
 from decimal import Decimal
+from pprint import pprint
 from unittest import TestCase
 
-from tissuebox import SchemaError, normalise, sort_unique, valid_schema, validate, validate as v, aster_to_list
+from tissuebox import SchemaError, normalise, sort_unique, valid_schema, validate, validate as v
 from tissuebox.basic import divisible, email, integer, lt, url, uuid4
+
 
 class TestMiscellaneous(TestCase):
     def test_sort_unique(self):
         l = [4, 3, 2, 1, 1, 2, 3, 4]
         sort_unique(l)
         assert l == [1, 2, 3, 4]
+
 
 class TestValidSchema(TestCase):
     def setup(self):
@@ -68,6 +71,7 @@ class TestValidSchema(TestCase):
     def test_schema_is_tissues_mixed_with_primitives__ok(self):
         s = [email, url, uuid4, bool, integer, int, str]
         assert valid_schema(s)
+
 
 class TestPrimitives(TestCase):
     def setup(self):
@@ -230,11 +234,13 @@ class TestPrimitives(TestCase):
         payload = 'hello'
         assert not validate(schema, payload)
 
+
 class TestCauseSchemaError(TestCase):
     def test_schema_is_invalid(self):
         schema = Decimal
         payload = 5
         self.assertRaises(SchemaError, validate, schema, payload)
+
 
 class TestListOfPrimitives(TestCase):
     def test_schema_list_int_payload_list_int(self):
@@ -269,6 +275,7 @@ class TestListOfPrimitives(TestCase):
         errors = []
         assert not validate(schema, payload, errors)
         # assert '5.5 must be either null, boolean, string or integer' in errors
+
 
 class TestTissues(TestCase):
     """
@@ -322,6 +329,7 @@ class TestTissues(TestCase):
         # assert '11 must be less than 10' in e
         # assert '12 must be less than 10' in e
 
+
 class TestComplexSyntax(TestCase):
     def test_curly_braces(self):
         assert validate({1, 2}, 1)
@@ -334,13 +342,11 @@ class TestComplexSyntax(TestCase):
         assert validate([{1, 2}], [1, 2, 2, 2, 1, 1, 1])
 
         e = []
-        assert not validate([{1, 2}], [1, 2, 3, 4, 15], e)
-        assert e == [
-            '[2] must be either 1 or 2 (but 3)',
-            '[3] must be either 1 or 2 (but 4)',
-            '[4] must be either 1 or 2 (but 15)'
-        ]
-        assert validate([{int, str}], [1, 'hello', 2, 'world'])
+        assert not validate([{1, 2}], [1, 2, 3, 4], e)
+        # assert '3 must be either 1 or 2' in e
+        # assert '4 must be either 1 or 2' in e
+
+        assert validate([{int, str}], [1, 2, 'hello', 'world'])
         assert not validate([{int, str}], [1, 2, 'hello', 'world', True])
         assert not validate([{int, str}], [1, 2, 'hello', 'world', None])
         assert not validate([{int, str}], [1, 2, 'hello', 'world', 3.8])
@@ -452,158 +458,148 @@ class TestComplexSyntax(TestCase):
         assert not validate(schema, payload, e)
         assert "['kids'][1]['sex'] must be either Female or Male (but f)" in e
 
-    def test_nonstring_keys(self):
-        kid = {
-            'name': str,
-            1: str
-        }
-        schema = {
-            'name': str,
-            1: bool,
-            'kids': [kid]
-        }
-        payload = {
-            'name': 'Roger',
-            1: True,
-            'kids': [
-                {
-                    'name': "Silly",
-                    1: "HW",
-                },
-                {
-                    'name': "Billy",
-                    1: "Hello World",
-                },
-            ]
-        }
-        assert validate(schema, payload)
 
-        # Change the payload to cause an error
-        payload['kids'][0][1] = 10
-        e = []
-        assert not validate(schema, payload, e)
-        assert e == ["['kids'][0][1] must be string (but 10)"]
+# class TestDottedDicts(TestCase):
+#     def test_dot_to_dict(self):
+#         # Basic not-needed case
+#         schema = {
+#             'name': str,
+#             'active': bool,
+#             'age': int,
+#         }
+#         dot_to_dict(schema)
+#         assert schema == {
+#             'name': str,
+#             'active': bool,
+#             'age': int,
+#         }
+#
+#         # Bit more realistic case
+#         schema = {
+#             'name': str,
+#             'active': bool,
+#             'age': int,
+#             'pets': [str],
+#             'kid.name': str,
+#             'kid.age': int,
+#             'kid.grade': int,
+#             'kid.phone.model': str,
+#             'kid.phone.year': int,
+#             'kid.phone.career': {'Verizon', 'AT & T', 'T-Mobile'},
+#         }
+#         dot_to_dict(schema)
+#         assert schema == {
+#             'name': str,
+#             'active': bool,
+#             'age': int,
+#             'pets': [str],
+#             'kid': {
+#                 'name': str,
+#                 'age': int,
+#                 'grade': int,
+#                 'phone': {
+#                     'model': str,
+#                     'year': int,
+#                     'career': {'Verizon', 'AT & T', 'T-Mobile'},
+#                 }
+#             }
+#         }
+#
+#         # Corner cases
+#         schema = {}
+#         dot_to_dict(schema)
+#         assert schema == {}
+#
+#         schema = {
+#             'names': []
+#         }
+#         dot_to_dict(schema)
+#         assert schema == {
+#             'names': []
+#         }
+#
+#         schema = {
+#             'names': [1, 2]
+#         }
+#         dot_to_dict(schema)
+#         assert schema == {
+#             'names': [1, 2]
+#         }
+#
+#         schema = {
+#             'names': {1, 2}
+#         }
+#         dot_to_dict(schema)
+#         assert schema == {
+#             'names': {1, 2}
+#         }
+#
+#         schema = 5
+#         dot_to_dict(schema)
+#         assert schema == 5
+#
+#         schema = str
+#         dot_to_dict(schema)
+#         assert schema == str
+#
+#     def test_schema_dotted(self):
+#         schema = {
+#             'name': str,
+#             'active': bool,
+#             'age': int,
+#             'pets': [str],
+#             'kid.name': str,
+#             'kid.age': int,
+#             'kid.grade': int,
+#             'kid.phone.model': str,
+#             'kid.phone.year': int,
+#             'kid.phone.career': {'Verizon', 'AT & T', 'T-Mobile'},
+#         }
+#         payload = {
+#             'name': 'Roger',
+#             'active': False,
+#             'age': 42,
+#             'pets': ['Elise', 'Richard', 'Caprice'],
+#             'kid': {
+#                 'name': 'Julia',
+#                 'age': 12,
+#                 'grade': 6,
+#                 'phone': {
+#                     'model': 'iPhone X',
+#                     'year': 2017,
+#                     'career': 'Verizon',
+#                 }
+#             }
+#         }
+#         validate(schema, payload)
+#
+#         # Send an incorrect career name
+#         e = []
+#         payload['kid']['phone']['career'] = 'X'
+#         assert not validate(schema, payload, e)
+#         assert "['kid']['phone']['career'] must be either" in e[0]
 
 class TestNormalise(TestCase):
-    def test_normalise_basics(self):
-        schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-        }
-        normalise(schema)
-        assert schema == {
-            'name': str,
-            'active': bool,
-            'age': int,
-        }
+    # def test_exceptions(self):
+    #     schema = {
+    #         'name': str,
+    #         'active': bool,
+    #         'age': int,
+    #         'pets': [str],
+    #         'kids.name': str,
+    #         'kids.oor': str,
+    #         'kids.*.grade': int,
+    #         'kids.grade.marks': int,
+    #         'kids.age': str,
+    #     }
+    #
+    #     normalise(schema)
+    #
+    #     assert schema == {'name': str, 'active': bool, 'age': int, 'pets': [str], 'kids': {'name': str, 'oor': str, '*': {'grade': int}, 'grade': {'marks': int}, 'age': str}}
+    #
+    #     print()
 
-        # Bit more realistic case
-        schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'kid.name': str,
-            'kid.age': int,
-            'kid.grade': int,
-            'kid.phone.model': str,
-            'kid.phone.year': int,
-            'kid.phone.career': {'Verizon', 'AT & T', 'T-Mobile'},
-        }
-        normalise(schema)
-        assert schema == {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'kid': {
-                'name': str,
-                'age': int,
-                'grade': int,
-                'phone': {
-                    'model': str,
-                    'year': int,
-                    'career': {'Verizon', 'AT & T', 'T-Mobile'},
-                }
-            }
-        }
-
-        # Corner cases
-        schema = {}
-        normalise(schema)
-        assert schema == {}
-
-        schema = {
-            'names': []
-        }
-        normalise(schema)
-        assert schema == {
-            'names': []
-        }
-
-        schema = {
-            'names': [1, 2]
-        }
-        normalise(schema)
-        assert schema == {
-            'names': [1, 2]
-        }
-
-        schema = {
-            'names': {1, 2}
-        }
-        normalise(schema)
-        assert schema == {
-            'names': {1, 2}
-        }
-
-        schema = 5
-        normalise(schema)
-        assert schema == 5
-
-        schema = str
-        normalise(schema)
-        assert schema == str
-
-    def test_schema_dotted(self):
-        schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'kid.name': str,
-            'kid.age': int,
-            'kid.grade': int,
-            'kid.phone.model': str,
-            'kid.phone.year': int,
-            'kid.phone.career': {'Verizon', 'AT & T', 'T-Mobile'},
-        }
-        payload = {
-            'name': 'Roger',
-            'active': False,
-            'age': 42,
-            'pets': ['Elise', 'Richard', 'Caprice'],
-            'kid': {
-                'name': 'Julia',
-                'age': 12,
-                'grade': 6,
-                'phone': {
-                    'model': 'iPhone X',
-                    'year': 2017,
-                    'career': 'Verizon',
-                }
-            }
-        }
-        assert validate(schema, payload)
-
-        # Send an incorrect career name
-        e = []
-        payload['kid']['phone']['career'] = 'X'
-        assert not validate(schema, payload, e)
-        assert "['kid']['phone']['career'] must be either" in e[0]
-
-    def test_more_normalise(self):
+    def test_misc(self):
         schema = {
             'name': str,
             'active': bool,
@@ -612,162 +608,12 @@ class TestNormalise(TestCase):
             'more': {
                 'kid.name': str,
                 'kid.age': int,
+                # 'kid.phone': bool,
                 'kid.phones.*.model': str,
                 'kid.phones.*.year': int,
                 'kid.phones.*.career': {'Verizon', 'AT & T', 'T-Mobile'},
             }
         }
         normalise(schema)
-        assert schema == {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'more': {
-                'kid': {
-                    'name': str,
-                    'age': int,
-                    'phones': {
-                        '*': {
-                            'model': str,
-                            'year': int,
-                            'career': {'Verizon', 'T-Mobile', 'AT & T'}
-                        }
-                    }
-                }
-            }
-        }
-        schema = aster_to_list(schema)
-        assert schema == {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'more': {
-                'kid': {
-                    'name': str,
-                    'age': int,
-                    'phones': [
-                        {
-                            'model': str,
-                            'year': int,
-                            'career': {'Verizon', 'T-Mobile', 'AT & T'}
-                        }
-                    ]
-                }
-            }
-        }
-
-        # Corner case
-        schema = {
-            'kid.name': str,
-            'kid.friends.*': str,  # In this case '*' is enough to justify that 'kid.friends' is a string array
-        }
-        normalise(schema)
-        schema = aster_to_list(schema)
-        assert schema == {
-            'kid': {
-                'name': str,
-                'friends': [str]
-            }
-        }
-
-    def test_dotted_asterisk(self):
-        schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'kid.name': str,
-            'kid.age': int,
-            'kid.phones.*.model': str,
-            'kid.phones.*.year': int,
-            'kid.phones.*.career': {'Verizon', 'AT & T', 'T-Mobile'}
-        }
-
-        payload = {
-            'name': 'Roger',
-            'active': False,
-            'age': 42,
-            'pets': ['Elise', 'Richard', 'Caprice'],
-            'kid': {
-                'name': 'Julia',
-                'age': 12,
-                'grade': 6,
-                'phones': [
-                    {
-                        'model': 'iPhone X',
-                        'year': 2017,
-                        'career': 'Verizon',
-                    },
-                    {
-                        'model': 'iPhone XS',
-                        'year': 2019,
-                        'career': 'Verizon',
-                    },
-                    {
-                        'model': 'Huawei P30',
-                        'year': 2019,
-                        'career': 'Vodafone',
-                    }
-                ]
-            }
-        }
-
-        e = []
-        assert not validate(schema, payload, e)
-        assert '[\'kid\'][\'phones\'][2][\'career\'] must be either' in e[0]
-
-class TestSchemaError(TestCase):
-    def test_dotted_override(self):
-        schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'kid.name': str,
-            'kid.name.first': str  # This line means 'kid.name' is a dict{} however the previous line claims 'kid.name' is a `str`, which is a conflict, expect SchemaError
-        }
-
-        with self.assertRaises(SchemaError):
-            validate(schema, None)
-
-        schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'kid.name.first': str,
-            'kid.name': str,  # Same case as above, this time this line has the chance to override previously declared deeper schema. Expect SchemaError
-            # i.e 'kid.name.first' is already declared as `str`, now while declaring `'kid.name` as something else Tissuebox MUST NOT override the previous and MUST detect the conflict.
-        }
-
-        # Warning: Depending on the run time this test might fail, because it depends on the order where Python iterates the key. In both the scenarios SchemaError is expected.
-        # Once a while manually run these cases while enabling debugger
-        with self.assertRaises(SchemaError):
-            validate(schema, None)
-
-    def test_starred_override(self):
-        schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'kids.*.name.': str,
-            'kids': str
-        }
-
-        with self.assertRaises(SchemaError):
-            validate(schema, None)
-
-        schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'kids.*.name.': str,
-            'kids.hello.world': str
-        }
-
-        with self.assertRaises(SchemaError):
-            validate(schema, None)
+        pprint(schema)
+        print()
