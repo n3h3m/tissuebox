@@ -31,7 +31,7 @@ class TestValidSchema(TestCase):
         assert valid_schema(1.1)
         assert valid_schema(1e3)
         assert valid_schema(3 + 4j)
-        assert valid_schema('hello')
+        assert valid_schema("hello")
         assert valid_schema([])
         assert valid_schema(())
         assert valid_schema(set())
@@ -65,7 +65,7 @@ class TestValidSchema(TestCase):
         assert valid_schema(s)
 
     def test_schema_is_tissuelistmixed_literal_nok(self):
-        s = [email, url, uuid4, 'hello']
+        s = [email, url, uuid4, "hello"]
         assert valid_schema(s)
 
     def test_schema_is_tissues_mixed_with_primitives__ok(self):
@@ -92,7 +92,7 @@ class TestPrimitives(TestCase):
 
     def test_schema_list_payload_non_list(self):
         schema = list
-        payload = 'Hello'
+        payload = "Hello"
         assert not validate(schema, payload)
 
     def test_schema_int_payload_int(self):
@@ -114,7 +114,7 @@ class TestPrimitives(TestCase):
         schema = int
         payload = 1e3
         assert not validate(schema, payload)
-        payload = 1e+3
+        payload = 1e3
         assert not validate(schema, payload)
         payload = 1e-3
         assert not validate(schema, payload)
@@ -146,7 +146,7 @@ class TestPrimitives(TestCase):
 
     def test_schema_float_payload_float_scientific__ok(self):
         schema = float
-        payload = 4.08E+10
+        payload = 4.08e10
         assert validate(schema, payload)
 
     def test_schema_float_payload_bool__nok(self):
@@ -186,12 +186,12 @@ class TestPrimitives(TestCase):
 
     def test_schema_str_payload_str__ok(self):
         schema = str
-        payload = 'Hello'
+        payload = "Hello"
         assert validate(schema, payload)
 
     def test_schema_str_payload_empty_str__ok(self):
         schema = str
-        payload = ''
+        payload = ""
         assert validate(schema, payload)
 
     def test_schema_str_payload_int__nok(self):
@@ -211,7 +211,7 @@ class TestPrimitives(TestCase):
 
     def test_schema_str_payload_list__nok(self):
         schema = str
-        payload = ['hello', 'world']
+        payload = ["hello", "world"]
         assert not validate(schema, payload)
 
     def test_schema_str_payload_tuple__nok(self):
@@ -231,7 +231,7 @@ class TestPrimitives(TestCase):
 
     def test_schema_none_payload_str__nok(self):
         schema = None
-        payload = 'hello'
+        payload = "hello"
         assert not validate(schema, payload)
 
 
@@ -262,16 +262,16 @@ class TestListOfPrimitives(TestCase):
         payload = 1
         errors = []
         assert not validate(schema, payload, errors)
-        assert '1 must be list' in errors
+        assert "1 must be list" in errors
 
     def test_scheme_mixedlist_payload_within__ok(self):
         schema = [str, bool]
-        payload = ['hello', False]
+        payload = ["hello", False]
         assert validate(schema, payload)
 
     def test_scheme_mixedlist_payload_outside__nok(self):
         schema = [str, bool, None, int]
-        payload = ['hello', False, 5.5]
+        payload = ["hello", False, 5.5]
         errors = []
         assert not validate(schema, payload, errors)
         # assert '5.5 must be either null, boolean, string or integer' in errors
@@ -284,22 +284,22 @@ class TestTissues(TestCase):
 
     def test_schema_email_payload_email_ok(self):
         s = email
-        p = 'hello@world.com'
+        p = "hello@world.com"
         assert validate(s, p)
 
     def test_schema_emaillist_payload_emaillist_ok(self):
         s = [email]
-        p = ['hello@world.com', 'world@hello.com']
+        p = ["hello@world.com", "world@hello.com"]
         assert validate(s, p)
 
     def test_schema_mixedlist_payload_within__ok(self):
         s = [email, str, int]
-        p = ['hello@world.com', 'world', 5]
+        p = ["hello@world.com", "world", 5]
         assert validate(s, p)
 
     def test_schema_mixedtissuelist_payload_outslidelist__nok(self):
         s = [email, url]
-        p = ['hello@world.com', 'world@hello.com', 'com']
+        p = ["hello@world.com", "world@hello.com", "com"]
         e = []
         assert not validate(s, p, e)
         # assert 'com must be either a valid url or a valid email' in e
@@ -346,12 +346,12 @@ class TestComplexSyntax(TestCase):
         # assert '3 must be either 1 or 2' in e
         # assert '4 must be either 1 or 2' in e
 
-        assert validate([{int, str}], [1, 2, 'hello', 'world'])
-        assert not validate([{int, str}], [1, 2, 'hello', 'world', True])
-        assert not validate([{int, str}], [1, 2, 'hello', 'world', None])
-        assert not validate([{int, str}], [1, 2, 'hello', 'world', 3.8])
-        assert not validate([{int, str}], [1, 2, 'hello', 'world', 3.4j])
-        assert not validate([{int, str}], [1, 2, 'hello', 'world', str])
+        assert validate([{int, str}], [1, 2, "hello", "world"])
+        assert not validate([{int, str}], [1, 2, "hello", "world", True])
+        assert not validate([{int, str}], [1, 2, "hello", "world", None])
+        assert not validate([{int, str}], [1, 2, "hello", "world", 3.8])
+        assert not validate([{int, str}], [1, 2, "hello", "world", 3.4j])
+        assert not validate([{int, str}], [1, 2, "hello", "world", str])
 
     def test_parentheses(self):
         s = (divisible(2), lt(10))
@@ -359,12 +359,12 @@ class TestComplexSyntax(TestCase):
 
         e = []
         assert not validate(s, 5, e)
-        assert '5 must be multiple of 2' in e
+        assert "5 must be multiple of 2" in e
 
         e = []
         assert not validate(s, 11, e)
-        assert '11 must be multiple of 2' in e
-        assert '11 must be less than 10' in e
+        assert "11 must be multiple of 2" in e
+        assert "11 must be less than 10" in e
 
         # Validate list of parentheses
         assert validate([s], [2, 4, 6, 8])
@@ -379,82 +379,48 @@ class TestComplexSyntax(TestCase):
 
     def test_dicts(self):
         # Success
-        s = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str]
-        }
-        p = {
-            'name': 'Roger',
-            'active': True,
-            'age': 38,
-            'pets': ['Jimmy', 'Roger', 'Jessey']
-        }
+        s = {"name": str, "active": bool, "age": int, "pets": [str]}
+        p = {"name": "Roger", "active": True, "age": 38, "pets": ["Jimmy", "Roger", "Jessey"]}
         assert v(s, p)
 
         # Pass wrong data types
-        p = {
-            'name': 50,
-            'active': 'Yes',
-            'age': "38",
-            'pets': [1, 2, 'Jessey']
-        }
+        p = {"name": 50, "active": "Yes", "age": "38", "pets": [1, 2, "Jessey"]}
         e = []
         assert not v(s, p, e)
-        expected = ["['active'] must be boolean (but 'Yes')", "['age'] must be integer (but '38')",
-                    "['name'] must be string (but 50)", "['pets'][0] must be string (but 1)",
-                    "['pets'][1] must be string (but 2)"]
+        expected = [
+            "['active'] must be boolean (but 'Yes')",
+            "['age'] must be integer (but '38')",
+            "['name'] must be string (but 50)",
+            "['pets'][0] must be string (but 1)",
+            "['pets'][1] must be string (but 2)",
+        ]
         assert expected == e
 
     def test_subschema(self):
-        kid = {
-            'name': str,
-            'age': int,
-            'grade': int,
-            'sex': {'Male', 'Female'}
-        }
-        schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'kids': [kid]
-        }
+        kid = {"name": str, "age": int, "grade": int, "sex": {"Male", "Female"}}
+        schema = {"name": str, "active": bool, "age": int, "pets": [str], "kids": [kid]}
         payload = {
-            'name': 'Roger',
-            'active': True,
-            'age': 38,
-            'pets': ['Jimmy', 'Roger', 'Jessey'],
-            'kids': [
-                {
-                    'name': "Billy",
-                    'age': 10,
-                    'grade': 4
-                },
-                {
-                    'name': "Christina",
-                    'age': 13,
-                    'grade': 8,
-                    'sex': 'Female'
-                }
-            ]
+            "name": "Roger",
+            "active": True,
+            "age": 38,
+            "pets": ["Jimmy", "Roger", "Jessey"],
+            "kids": [{"name": "Billy", "age": 10, "grade": 4}, {"name": "Christina", "age": 13, "grade": 8, "sex": "Female"}],
         }
         assert validate(schema, payload)
 
         # Non-existing keys are just fine
-        del payload['kids'][1]['grade']
+        del payload["kids"][1]["grade"]
         assert validate(schema, payload)
 
         # Try passing different value
-        payload['kids'][1]['grade'] = None
+        payload["kids"][1]["grade"] = None
         e = []
         assert not validate(schema, payload, e)
         assert e == ["['kids'][1]['grade'] must be integer (but None)"]
 
         # Try adding a different value other than 'male' or 'female'
         e = []
-        payload['kids'][1]['sex'] = 'f'
+        payload["kids"][1]["sex"] = "f"
         assert not validate(schema, payload, e)
         assert "['kids'][1]['sex'] must be either Female or Male (but f)" in e
 
@@ -579,6 +545,7 @@ class TestComplexSyntax(TestCase):
 #         assert not validate(schema, payload, e)
 #         assert "['kid']['phone']['career'] must be either" in e[0]
 
+
 class TestNormalise(TestCase):
     # def test_exceptions(self):
     #     schema = {
@@ -601,18 +568,18 @@ class TestNormalise(TestCase):
 
     def test_misc(self):
         schema = {
-            'name': str,
-            'active': bool,
-            'age': int,
-            'pets': [str],
-            'more': {
-                'kid.name': str,
-                'kid.age': int,
+            "name": str,
+            "active": bool,
+            "age": int,
+            "pets": [str],
+            "more": {
+                "kid.name": str,
+                "kid.age": int,
                 # 'kid.phone': bool,
-                'kid.phones.*.model': str,
-                'kid.phones.*.year': int,
-                'kid.phones.*.career': {'Verizon', 'AT & T', 'T-Mobile'},
-            }
+                "kid.phones.*.model": str,
+                "kid.phones.*.year": int,
+                "kid.phones.*.career": {"Verizon", "AT & T", "T-Mobile"},
+            },
         }
         normalise(schema)
         pprint(schema)

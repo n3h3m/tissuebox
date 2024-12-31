@@ -1,4 +1,5 @@
 from distutils.core import setup
+
 try:
     fh = open("pypi.rst", "r")
     long_description = fh.read()
@@ -6,16 +7,16 @@ except FileNotFoundError:
     long_description = ""
 
 setup(
-    name='tissuebox',
-    version='2019.01.22',
-    description='Tissuebox :: Pythonic payload validator',
-    author='nehem',
+    name="tissuebox",
+    version="2019.01.22",
+    description="Tissuebox :: Pythonic payload validator",
+    author="nehem",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    author_email='nehemiah.jacob@gmail.com',
-    url='https://github.com/nehemiahjacob/tissuebox.git',
+    author_email="nehemiah.jacob@gmail.com",
+    url="https://github.com/nehemiahjacob/tissuebox.git",
     install_requires=[
         "jsonpickle==1.1",
     ],
-    packages=['tissuebox']
+    packages=["tissuebox"],
 )

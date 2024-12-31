@@ -1,5 +1,6 @@
 import re
 
+
 def exists(d, attrs):
     try:
         for at in attrs:
@@ -7,6 +8,7 @@ def exists(d, attrs):
         return True
     except (KeyError, TypeError):
         return False
+
 
 def sattr(d, *attrs):
     try:
@@ -19,11 +21,13 @@ def sattr(d, *attrs):
     except IndexError:
         print()
 
+
 def kgattr(d, sofar, *attrs):
     # gattr but very strict, tries to go nested, upon KeyError return the sofar list.
     for at in attrs:
         sofar.append(at)
         d = d[at]
+
 
 def regex_in(r, l):
     return bool(list(filter(re.compile(r).match, l)))

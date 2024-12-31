@@ -34,10 +34,10 @@ def normalise(schema, start=None):
             normalise(schema[k], start + [k])
 
         for k in list(schema.keys()):
-            if '.' not in k:
+            if "." not in k:
                 continue
 
-            splitted = k.split('.')
+            splitted = k.split(".")
             sofar = []
             sch = schema
 
@@ -58,8 +58,9 @@ def normalise(schema, start=None):
                 sattr(schema, *splitted)
                 del schema[k]
 
-        if '*' in schema and len(schema) > 1:
-            raise SchemaError("Can't normalise {} as it contains more elements{} than expected".format(start + ['*'], schema.keys()))
+        if "*" in schema and len(schema) > 1:
+            raise SchemaError("Can't normalise {} as it contains more elements{} than expected".format(start + ["*"], schema.keys()))
+
 
 # def dot_to_dict(schema):
 #     # Converts a dot separated schema into nested schema
@@ -98,7 +99,7 @@ primitives = {
     tuple: array,
     dict: dictionary,
     None: null,
-    complex: complex_number
+    complex: complex_number,
 }
 
 
@@ -111,7 +112,7 @@ def decorate(payload):
 
 def msg(schema):
     if schema is None:
-        return 'null'
+        return "null"
     if primitive(schema):
         return str(schema)
     if primitive_type(schema):
@@ -140,7 +141,7 @@ def valid_schema(schema):
     if schema in primitives:
         return True
 
-    if callable(schema) and getattr(schema, 'msg', None):
+    if callable(schema) and getattr(schema, "msg", None):
         return True
 
     return False
@@ -197,7 +198,7 @@ def validate(schema, payload, errors=None):
                     # errors.append("ᚏ['{}']{} but received {}".format(k, e.replace(re.findall(r'\(.*?)\', e)[0], '').replace('', ''), payload[k]))  # Handle this tidying up text later
         sort_unique(errors)
 
-    elif schema == '*':
+    elif schema == "*":
         print()
 
     elif type(schema) is list:
@@ -213,14 +214,14 @@ def validate(schema, payload, errors=None):
             E = []
             validate(schema[0], p, E)
             for e in E:
-                errors.append('[{}]{}'.format(i, e))
+                errors.append("[{}]{}".format(i, e))
 
     elif type(schema) is set:
         schema = list(schema)
         if not any([validate(s, payload) for s in schema]):
             if len(schema) > 1:
                 labels = sorted([msg(s) for s in schema])
-                errors.append(" must be either {} or {} (but {})".format(', '.join(labels[:-1]), labels[-1], payload))
+                errors.append(" must be either {} or {} (but {})".format(", ".join(labels[:-1]), labels[-1], payload))
             else:
                 errors.append("{} must be {}".format(payload, msg(schema[0])))
 
