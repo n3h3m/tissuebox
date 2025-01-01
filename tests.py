@@ -471,6 +471,32 @@ class TestNormalise(TestCase):
         normalise(schema)
         # pprint(schema)
 
+    def test_array_notation(self):
+        # Test valid array notation
+        schema = {"name": str, "active": bool, "age": int, "pets": [str], "[kids].name": str, "[kids].age": int, "[kids].grade": int}
+
+        normalise(schema)
+
+        expected = {"name": str, "active": bool, "age": int, "pets": [str], "kids": [{"name": str, "age": int, "grade": int}]}
+
+        assert schema == expected
+
+    def test_array_dict_conflict(self):
+        # Test conflicting notation
+        schema = {
+            "name": str,
+            "active": bool,
+            "age": int,
+            "pets": [str],
+            "[kids].name": str,
+            "kids.age": int,
+        }
+
+        with self.assertRaises(SchemaError) as context:
+            normalise(schema)
+
+        assert "Ambiguous schema: 'kids' is used both as array and dict pattern" in str(context.exception)
+
 
 class TestWildcardValidation(TestCase):
     def test_wildcard_simple_dict(self):
@@ -530,7 +556,8 @@ class TestWildcardValidation(TestCase):
         # Should fail - non-string details
         errors = []
         invalid_payload = {
-            "products": [{"id": "prod1", "details": {"color": "red", "count": 5, "inStock": True}}]  # Should be string  # Should be string
+            "products": [{"id": "prod1", "details": {"color": "red", "count": 5, "inStock": True}}]
+            # Should be string  # Should be string
         }
         assert not validate(schema, invalid_payload, errors)
         assert len(errors) == 2
@@ -540,3 +567,94 @@ class TestWildcardValidation(TestCase):
         schema = {"config": {"*": str, "version": int}}  # This should cause SchemaError
 
         self.assertRaises(SchemaError, validate, schema, {"config": {}})
+
+
+class TestArrayNotationValidation(TestCase):
+    def test_validate_array_schema(self):
+        # Schema using array notation
+        schema = {"name": str, "active": bool, "pets": [str], "[kids].name": str, "[kids].age": int, "[kids].grade": int}
+
+        # Valid payload - with multiple kids
+        valid_payload = {
+            "name": "John",
+            "active": True,
+            "pets": ["dog", "cat"],
+            "kids": [
+                {"name": "Alice", "age": 10, "grade": 5},
+                {"name": "Bob", "age": 8, "grade": 3},
+                {"name": "Charlie", "grade": 4},  # Missing age is fine by tissuebox philosophy
+            ],
+        }
+        assert validate(schema, valid_payload)
+
+        # Valid payload - with no kids (array fields are optional)
+        valid_payload_no_kids = {"name": "John", "active": True, "pets": ["dog", "cat"]}
+        assert validate(schema, valid_payload_no_kids)
+
+        # Invalid payload - wrong types
+        errors = []
+        invalid_payload = {
+            "name": "John",
+            "active": True,
+            "pets": ["dog", "cat"],
+            "kids": [
+                {"name": "Alice", "age": "10"},  # age should be int
+                {"name": True, "grade": "3"},  # name should be str, grade should be int
+            ],
+        }
+        assert not validate(schema, invalid_payload, errors)
+        # Only check number of errors, order might vary
+        assert len(errors) == 3
+
+        # Invalid payload - kids not an array
+        errors = []
+        invalid_array_payload = {
+            "name": "John",
+            "active": True,
+            "pets": ["dog", "cat"],
+            "kids": {"name": "Alice", "age": 10},  # Should be array, not dict
+        }
+        assert not validate(schema, invalid_array_payload, errors)
+        assert len(errors) == 1
+        assert "kids" in errors[0] and "must be list" in errors[0]
+
+    def test_validate_nested_array_schema(self):
+        schema = {
+            "name": str,
+            "[children].name": str,
+            "[children].age": int,
+            "[children].[pets].type": str,
+            "[children].[pets].age": int,
+        }
+
+        # Valid payload with nested arrays
+        valid_payload = {
+            "name": "John",
+            "children": [
+                {
+                    "name": "Alice",
+                    "age": 10,
+                    "pets": [
+                        {"type": "dog", "age": 5},
+                        {"type": "cat", "age": 3},
+                        {"type": "fish"},
+                    ],
+                },
+                {
+                    "name": "Bob",
+                    "pets": [
+                        {"type": "hamster"},
+                    ],
+                },
+            ],
+        }
+        assert validate(schema, valid_payload)
+
+        # Invalid payload - wrong types in nested structure
+        errors = []
+        invalid_payload = {
+            "name": "John",
+            "children": [{"name": "Alice", "age": "10", "pets": [{"type": None, "age": "5"}, {"type": "Cat", "age": "Seven"}]}],  # should be int
+        }
+        assert not validate(schema, invalid_payload, errors)
+        assert len(errors) == 4

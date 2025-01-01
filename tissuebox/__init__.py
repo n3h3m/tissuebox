@@ -19,38 +19,113 @@ def normalise(schema, start=None):
             normalise(s, start + [s])
 
     if type(schema) is dict:
-        # First check for "*" with other keys
         if "*" in schema and len(schema) > 1:
             raise SchemaError(
                 "Can't normalise {} as it contains more keys {} than expected".format(start + ["*"], [k for k in schema.keys() if k != "*"])
             )
 
-        # Normalize all values
-        for k in schema:
-            normalise(schema[k], start + [k])
+        # Track array vs dict keys
+        array_keys = set()
+        dict_keys = set()
 
-        # Handle dot notation
+        # First detect any conflicts
+        for k in schema.keys():
+            if "." not in k:
+                continue
+
+            parts = k.split(".")
+            base_key = parts[0]
+
+            if base_key.startswith("[") and base_key.endswith("]"):
+                array_keys.add(base_key[1:-1])  # Remove brackets
+            else:
+                dict_keys.add(base_key)
+
+        # Check for conflicts
+        conflicts = array_keys.intersection(dict_keys)
+        if conflicts:
+            raise SchemaError("Ambiguous schema: '{}' is used both as array and dict pattern".format(list(conflicts)[0]))
+
+        # First pass - identify array patterns and group their fields
+        array_fields = {}  # Will store array_key -> fields mapping
+
         for k in list(schema.keys()):
             if "." not in k:
                 continue
 
-            splitted = k.split(".")
-            sofar = []
-            sch = schema
+            parts = k.split(".")
+            if not parts[0].startswith("["):
+                # Handle regular dot notation
+                try:
+                    sch = schema
+                    sofar = []
+                    for s in parts[:-1]:
+                        if s in sch:
+                            sch = sch[s]
+                        else:
+                            sch[s] = {}
+                            sch = sch[s]
+                        sofar.append(s)
+                    sch[parts[-1]] = schema[k]
+                    del schema[k]
+                except TypeError:
+                    raise SchemaError("Can't normalise {} as it conflicts with existing structure".format(k))
+                continue
 
-            try:
-                for s in splitted:
-                    sch = sch[s]
-                    sofar.append(s)
-                splitted.append(schema[k])
-                raise SchemaError("Can't normalise {} as it would override {}".format(start + splitted, start + sofar))
-            except TypeError:
-                sofar.append(sch)
-                raise SchemaError("Can't normalise {} as it conflicts with {}".format(start + splitted, start + sofar))
-            except KeyError:
-                splitted.append(schema[k])
-                sattr(schema, *splitted)
-                del schema[k]
+            # Get the first array key
+            array_key = parts[0][1:-1]  # Remove brackets
+
+            if array_key not in array_fields:
+                array_fields[array_key] = {}
+
+            # Remove the first array part and store remaining path
+            remaining_path = ".".join(parts[1:])
+            array_fields[array_key][remaining_path] = schema[k]
+            del schema[k]
+
+        # Second pass - process each array pattern
+        for array_key, fields in array_fields.items():
+            if array_key not in schema:
+                schema[array_key] = [{}]
+
+            # Group nested array fields
+            nested_arrays = {}
+            regular_fields = {}
+
+            for field_path, value in fields.items():
+                if "." not in field_path:
+                    regular_fields[field_path] = value
+                    continue
+
+                parts = field_path.split(".")
+                if parts[0].startswith("["):
+                    nested_key = parts[0][1:-1]
+                    if nested_key not in nested_arrays:
+                        nested_arrays[nested_key] = {}
+                    nested_arrays[nested_key][".".join(parts[1:])] = value
+                else:
+                    regular_fields[field_path] = value
+
+            # Add regular fields to array schema
+            for field, value in regular_fields.items():
+                if "." in field:
+                    parts = field.split(".")
+                    current = schema[array_key][0]
+                    for part in parts[:-1]:
+                        if part not in current:
+                            current[part] = {}
+                        current = current[part]
+                    current[parts[-1]] = value
+                else:
+                    schema[array_key][0][field] = value
+
+            # Process nested arrays recursively
+            for nested_key, nested_fields in nested_arrays.items():
+                nested_schema = {"[" + nested_key + "]." + k: v for k, v in nested_fields.items()}
+                normalised = normalise(nested_schema)
+                schema[array_key][0].update(normalised)
+
+    return schema
 
 
 primitives = {
