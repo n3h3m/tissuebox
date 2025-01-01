@@ -86,19 +86,19 @@ def decorate(payload):
 def msg(schema):
     if schema is None:
         return "null"
-    if primitive(schema):
+    if is_primitive_value(schema):
         return str(schema)
-    if primitive_type(schema):
+    if is_primitive_type(schema):
         schema = primitives[schema]
     return schema.msg
 
 
-def primitive(schema):
+def is_primitive_value(schema):
     global primitives
     return type(schema) in primitives
 
 
-def primitive_type(schema):
+def is_primitive_type(schema):
     global primitives
     return schema in primitives
 
@@ -215,7 +215,7 @@ def validate(schema, payload, errors=None):
         if callable(schema):
             result = schema(payload)
 
-        if primitive(schema):
+        if is_primitive_value(schema):
             result = schema == payload
 
         if not result:
