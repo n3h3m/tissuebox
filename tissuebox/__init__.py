@@ -13,26 +13,23 @@ def sort_unique(l):
 def normalise(schema, start=None):
     if start is None:
         start = []
-    """
-    Normalises a dot separated schema into nested schema.
-
-    Possible areas where dicts are possible
-        - A dict can be self
-        - A dict can be value of few other keys
-        - A dict can be an elements of an array where that array is a value of other keys
-        - A dict can be part of tuple, where that tuple can be part of another list
-
-    Pretty much think of going after all the complex syntax where any dict-tissue is possible
-    """
 
     if type(schema) in [list, tuple, set]:
         for s in schema:
             normalise(s, start + [s])
 
     if type(schema) is dict:
+        # First check for "*" with other keys
+        if "*" in schema and len(schema) > 1:
+            raise SchemaError(
+                "Can't normalise {} as it contains more keys {} than expected".format(start + ["*"], [k for k in schema.keys() if k != "*"])
+            )
+
+        # Normalize all values
         for k in schema:
             normalise(schema[k], start + [k])
 
+        # Handle dot notation
         for k in list(schema.keys()):
             if "." not in k:
                 continue
@@ -45,21 +42,15 @@ def normalise(schema, start=None):
                 for s in splitted:
                     sch = sch[s]
                     sofar.append(s)
-                # A successful completion means discrepancy
                 splitted.append(schema[k])
-                sofar.append(sch)
                 raise SchemaError("Can't normalise {} as it would override {}".format(start + splitted, start + sofar))
             except TypeError:
                 sofar.append(sch)
                 raise SchemaError("Can't normalise {} as it conflicts with {}".format(start + splitted, start + sofar))
             except KeyError:
-                # A good case requires KeyError
                 splitted.append(schema[k])
                 sattr(schema, *splitted)
                 del schema[k]
-
-        if "*" in schema and len(schema) > 1:
-            raise SchemaError("Can't normalise {} as it contains more elements{} than expected".format(start + ["*"], schema.keys()))
 
 
 primitives = {
@@ -106,9 +97,20 @@ def is_primitive_type(schema):
 
 def is_valid_schema(schema):
     global primitives
+
+    # Handle collections
     if type(schema) in (set, list, tuple):
         return all([is_valid_schema(s) for s in schema])
 
+    # Handle dictionaries
+    if type(schema) is dict:
+        # If dict has "*", it should be the only key
+        if "*" in schema and len(schema) > 1:
+            return False
+        # Recursively validate all values in dict
+        return all(is_valid_schema(v) for v in schema.values())
+
+    # Handle primitives and tissue functions
     if type(schema) in primitives:
         return True
 
@@ -125,61 +127,43 @@ def validate(schema, payload, errors=None):
     if errors is None:
         errors = []
 
-    global primitives
-
-    normalise(schema)
-    """
-    Schema can be a primitives or a tissue
-    e.g:
-    int --> 1,2,3,4,5
-    float --> 1.5, 4 etc
-    list --> [], [1,2,4], ["hello", "world"], [1,"hello"]
-    dict --> All valid dicts
-    bool --> True or False
-    None --> Value must be equal to None
-    tissue --> Value must be something that is compliant to the said tissuebox schema
-
-    Schema can be list of primitives
-    e.g:
-    [int] --> [1,2,3,4]
-    [str] --> ["Hello", "World"]
-    [int, str] --> A list with mixed types, but only int or string allowed. [1, "hello"]
-    [tissue] --> Value must be an array, And all array elements must be tissue compliant
-    which meets tissue schema
-    
-    Schema can be tissues or list of tissues, list of mixed privitives and tissues
-    e.g
-    email -> 'hello@world.com'
-    url -> 'www.duck.com'
-    [email] --> ['hello@world.com, world@hello.com']
-    [url, email] --> ['www.duck.com', 'hello@world.com, world@hello.com']
-    """
     if not is_valid_schema(schema):
         raise SchemaError("Schema is invalid, Use SchemaInspector to debug the schema")
+
+    normalise(schema)
 
     if type(schema) is dict:
         if type(payload) is not dict:
             errors.append("must be dict")
-            return
+            return False
+
+        # Handle wildcard schema
+        if "*" in schema:
+            wildcard_schema = schema["*"]
+            for key, value in payload.items():
+                E = []
+                validate(wildcard_schema, value, E)
+                for e in E:
+                    errors.append("['{}']{}".format(key, e))
+            sort_unique(errors)
+            return not errors
+
+        # Handle normal dict schema
         for k in schema:
-            if type(k) is str:  # At the moment we only support string keys for dicts # Todo
+            if type(k) is str:
                 if k not in payload:
                     continue
                 E = []
                 validate(schema[k], payload.get(k), E)
                 for e in E:
                     errors.append("['{}']{}".format(k, e))
-                    # errors.append("ᚏ['{}']{} but received {}".format(k, e.replace(re.findall(r'\(.*?)\', e)[0], '').replace('', ''), payload[k]))  # Handle this tidying up text later
         sort_unique(errors)
-
-    elif schema == "*":
-        print()
+        return not errors
 
     elif type(schema) is list:
-        # If schema is list then payload also must be list, otherwise immediately append error and return
         if type(payload) is not list:
             errors.append("{} must be list".format(payload))
-            return
+            return False
 
         if len(schema) > 1:
             schema = [set(schema)]
@@ -189,6 +173,7 @@ def validate(schema, payload, errors=None):
             validate(schema[0], p, E)
             for e in E:
                 errors.append("[{}]{}".format(i, e))
+        return not errors
 
     elif type(schema) is set:
         schema = list(schema)
@@ -198,25 +183,26 @@ def validate(schema, payload, errors=None):
                 errors.append(" must be either {} or {} (but {})".format(", ".join(labels[:-1]), labels[-1], payload))
             else:
                 errors.append("{} must be {}".format(payload, msg(schema[0])))
-
         sort_unique(errors)
         return not errors
 
     elif type(schema) is tuple:
+        all_valid = True
         for s in schema:
             if not validate(s, payload):
                 errors.append("{} must be {}".format(payload, msg(s)))
+                all_valid = False
         sort_unique(errors)
-        return not errors
+        return all_valid
 
     else:
         if schema in primitives:
             schema = primitives[schema]
 
+        result = False
         if callable(schema):
             result = schema(payload)
-
-        if is_primitive_value(schema):
+        elif is_primitive_value(schema):
             result = schema == payload
 
         if not result:

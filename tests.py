@@ -592,3 +592,73 @@ class TestNormalise(TestCase):
         }
         normalise(schema)
         # pprint(schema)
+
+
+class TestWildcardValidation(TestCase):
+    def test_wildcard_simple_dict(self):
+        """Test that any key in dict must have string value"""
+        schema = {"*": str}
+
+        # Should pass - all values are strings
+        valid_payload = {"name": "John", "city": "NYC", "country": "USA"}
+        assert validate(schema, valid_payload)
+
+        # Should fail - has non-string values
+        errors = []
+        invalid_payload = {"name": "John", "age": 25, "active": True}  # Not a string  # Not a string
+        assert not validate(schema, invalid_payload, errors)
+        assert len(errors) == 2
+
+    def test_wildcard_nested_pattern(self):
+        """Test wildcard in nested structures for dynamic keys"""
+        schema = {"users": {"*": {"name": str, "age": int}}}  # Any user ID
+
+        # Should pass - all present values match their types
+        valid_payload = {
+            "users": {
+                "user1": {"name": "John", "age": 25},
+                "user2": {"name": "Jane"},  # age missing is fine
+                "user3": {"age": 40},  # name missing is fine
+                "user4": {},  # empty dict is fine too
+            }
+        }
+        assert validate(schema, valid_payload)
+
+        # Should fail - has wrong types for present values
+        errors = []
+        invalid_payload = {
+            "users": {
+                "user1": {"name": "John", "age": "25"},  # age present but wrong type
+                "user2": {"name": True},  # name present but wrong type
+                "user3": {"age": 40},  # this is fine - name not present
+            }
+        }
+        assert not validate(schema, invalid_payload, errors)
+        assert len(errors) == 2  # only two errors, for wrong types
+
+    def test_wildcard_array_elements(self):
+        """Test wildcard for validating array elements with consistent structure"""
+        schema = {"products": [{"id": str, "details": {"*": str}}]}  # All details must be strings
+
+        # Should pass - all details are strings
+        valid_payload = {
+            "products": [
+                {"id": "prod1", "details": {"color": "red", "size": "large", "material": "cotton"}},
+                {"id": "prod2", "details": {"color": "blue", "weight": "150g"}},
+            ]
+        }
+        assert validate(schema, valid_payload)
+
+        # Should fail - non-string details
+        errors = []
+        invalid_payload = {
+            "products": [{"id": "prod1", "details": {"color": "red", "count": 5, "inStock": True}}]  # Should be string  # Should be string
+        }
+        assert not validate(schema, invalid_payload, errors)
+        assert len(errors) == 2
+
+    def test_wildcard_with_specific_keys(self):
+        """Test that wildcard can't be mixed with specific keys at same level"""
+        schema = {"config": {"*": str, "version": int}}  # This should cause SchemaError
+
+        self.assertRaises(SchemaError, validate, schema, {"config": {}})
