@@ -547,24 +547,34 @@ class TestComplexSyntax(TestCase):
 
 
 class TestNormalise(TestCase):
-    # def test_exceptions(self):
-    #     schema = {
-    #         'name': str,
-    #         'active': bool,
-    #         'age': int,
-    #         'pets': [str],
-    #         'kids.name': str,
-    #         'kids.oor': str,
-    #         'kids.*.grade': int,
-    #         'kids.grade.marks': int,
-    #         'kids.age': str,
-    #     }
-    #
-    #     normalise(schema)
-    #
-    #     assert schema == {'name': str, 'active': bool, 'age': int, 'pets': [str], 'kids': {'name': str, 'oor': str, '*': {'grade': int}, 'grade': {'marks': int}, 'age': str}}
-    #
-    #     print()
+    def test_exceptions(self):
+        schema = {
+            "name": str,
+            "active": bool,
+            "age": int,
+            "pets": [str],
+            "kids.name": str,
+            "kids.oor": str,
+            "kids.*.grade": int,
+            "kids.grade.marks": int,
+            "kids.age": str,
+        }
+
+        normalise(schema)
+
+        assert schema == {
+            "name": str,
+            "active": bool,
+            "age": int,
+            "pets": [str],
+            "kids": {
+                "name": str,
+                "oor": str,
+                "*": {"grade": int},
+                "grade": {"marks": int},
+                "age": str,
+            },
+        }
 
     def test_misc(self):
         schema = {
@@ -575,12 +585,10 @@ class TestNormalise(TestCase):
             "more": {
                 "kid.name": str,
                 "kid.age": int,
-                # 'kid.phone': bool,
                 "kid.phones.*.model": str,
                 "kid.phones.*.year": int,
                 "kid.phones.*.career": {"Verizon", "AT & T", "T-Mobile"},
             },
         }
         normalise(schema)
-        pprint(schema)
-        print()
+        # pprint(schema)

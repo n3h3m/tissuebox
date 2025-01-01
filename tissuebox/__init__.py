@@ -62,33 +62,6 @@ def normalise(schema, start=None):
             raise SchemaError("Can't normalise {} as it contains more elements{} than expected".format(start + ["*"], schema.keys()))
 
 
-# def dot_to_dict(schema):
-#     # Converts a dot separated schema into nested schema
-#     if type(schema) is not dict:
-#         return
-#
-#     dot_found = False
-#     for k in schema:
-#         if '.' in k:
-#             dot_found = True
-#             break
-#     if dot_found:
-#         splitted = k.split('.')
-#         head, tail = '.'.join(splitted[:-1]), splitted[-1]
-#
-#         if not schema.get(head):
-#             schema[head] = {}
-#         schema[head].update({tail: schema[k]})
-#         del schema[k]
-#
-#         if '*' in schema[head] and len(schema[head]) > 1:
-#             other_keys = [head + '.' + _k for _k in schema[head] if _k is not '*']
-#             raise SchemaError('Discrepancy in array declaration, `{}` conflicts with other keys {}'.format(k, other_keys))
-#             print()
-#
-#         dot_to_dict(schema)
-#     return
-
 primitives = {
     int: integer,
     str: string,
