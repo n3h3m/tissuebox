@@ -2,7 +2,7 @@ from decimal import Decimal
 from pprint import pprint
 from unittest import TestCase
 
-from tissuebox import SchemaError, normalise, sort_unique, valid_schema, validate, validate as v
+from tissuebox import SchemaError, normalise, sort_unique, is_valid_schema, validate, validate as v
 from tissuebox.basic import divisible, email, integer, lt, url, uuid4
 
 
@@ -22,55 +22,55 @@ class TestValidSchema(TestCase):
 
     # All primitive literals are valid schemas
     def test_schema_primitive_literals(self):
-        assert valid_schema(None)
-        assert valid_schema(True)
-        assert valid_schema(False)
-        assert valid_schema(-1)
-        assert valid_schema(0)
-        assert valid_schema(1)
-        assert valid_schema(1.1)
-        assert valid_schema(1e3)
-        assert valid_schema(3 + 4j)
-        assert valid_schema("hello")
-        assert valid_schema([])
-        assert valid_schema(())
-        assert valid_schema(set())
+        assert is_valid_schema(None)
+        assert is_valid_schema(True)
+        assert is_valid_schema(False)
+        assert is_valid_schema(-1)
+        assert is_valid_schema(0)
+        assert is_valid_schema(1)
+        assert is_valid_schema(1.1)
+        assert is_valid_schema(1e3)
+        assert is_valid_schema(3 + 4j)
+        assert is_valid_schema("hello")
+        assert is_valid_schema([])
+        assert is_valid_schema(())
+        assert is_valid_schema(set())
 
     # All primitive types are valid schemas
     def test_schema_primitive_types(self):
-        assert valid_schema(int)
-        assert valid_schema(str)
-        assert valid_schema(float)
-        assert valid_schema(list)
-        assert valid_schema(set)
-        assert valid_schema(dict)
-        assert valid_schema(tuple)
-        assert valid_schema(complex)
-        assert valid_schema(bool)
+        assert is_valid_schema(int)
+        assert is_valid_schema(str)
+        assert is_valid_schema(float)
+        assert is_valid_schema(list)
+        assert is_valid_schema(set)
+        assert is_valid_schema(dict)
+        assert is_valid_schema(tuple)
+        assert is_valid_schema(complex)
+        assert is_valid_schema(bool)
 
     def test_schema_is_list_of_mixed_primitives__ok(self):
         schema = [int, str, bool]
-        assert valid_schema(schema)
+        assert is_valid_schema(schema)
 
     def test_schema_is_tissue__ok(self):
         s = email
-        assert valid_schema(s)
+        assert is_valid_schema(s)
 
     def test_schema_is_tissuelist__ok(self):
         s = [email]
-        assert valid_schema(s)
+        assert is_valid_schema(s)
 
     def test_schema_is_tissuelistmixed__ok(self):
         s = [email, url, uuid4]
-        assert valid_schema(s)
+        assert is_valid_schema(s)
 
     def test_schema_is_tissuelistmixed_literal_nok(self):
         s = [email, url, uuid4, "hello"]
-        assert valid_schema(s)
+        assert is_valid_schema(s)
 
     def test_schema_is_tissues_mixed_with_primitives__ok(self):
         s = [email, url, uuid4, bool, integer, int, str]
-        assert valid_schema(s)
+        assert is_valid_schema(s)
 
 
 class TestPrimitives(TestCase):

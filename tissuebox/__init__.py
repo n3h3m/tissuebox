@@ -84,6 +84,7 @@ def decorate(payload):
 
 
 def msg(schema):
+    # Returns human-friendly validation error message for schema type using .msg attribute (e.g. "must be integer", "must be null", etc.)
     if schema is None:
         return "null"
     if is_primitive_value(schema):
@@ -103,10 +104,10 @@ def is_primitive_type(schema):
     return schema in primitives
 
 
-def valid_schema(schema):
+def is_valid_schema(schema):
     global primitives
     if type(schema) in (set, list, tuple):
-        return all([valid_schema(s) for s in schema])
+        return all([is_valid_schema(s) for s in schema])
 
     if type(schema) in primitives:
         return True
@@ -153,7 +154,7 @@ def validate(schema, payload, errors=None):
     [email] --> ['hello@world.com, world@hello.com']
     [url, email] --> ['www.duck.com', 'hello@world.com, world@hello.com']
     """
-    if not valid_schema(schema):
+    if not is_valid_schema(schema):
         raise SchemaError("Schema is invalid, Use SchemaInspector to debug the schema")
 
     if type(schema) is dict:
