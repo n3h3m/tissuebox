@@ -10,6 +10,62 @@ def sort_unique(l):
     l[:] = sorted(set(l))
 
 
+def get_required_fields(schema):
+    """Extract all required fields from a schema"""
+    required_fields = []
+
+    def extract_fields(s, prefix=""):
+        if isinstance(s, dict):
+            for k, v in s.items():
+                if k == "*":
+                    continue
+                new_prefix = f"{prefix}['{k}']" if prefix else f"['{k}']"
+                if isinstance(v, (dict, list)):
+                    extract_fields(v, new_prefix)
+                else:
+                    required_fields.append(new_prefix)
+        elif isinstance(s, list) and len(s) > 0:
+            extract_fields(s[0], prefix)
+
+    extract_fields(schema)
+    return required_fields
+
+
+def check_required_fields(schema, payload, errors, path=""):
+    """Check if all required fields are present in payload"""
+    if isinstance(schema, dict):
+        if "*" in schema:
+            return
+
+        for k, v in schema.items():
+            new_path = f"{path}['{k}']" if path else f"['{k}']"
+
+            if k.startswith("[") and k.endswith("]"):
+                # Handle array notation
+                array_key = k[1:-1]
+                if array_key not in payload:
+                    errors.append(f"{new_path} is required")
+                elif isinstance(payload[array_key], list):
+                    for i, item in enumerate(payload[array_key]):
+                        array_path = f"{path}['{array_key}'][{i}]"
+                        if isinstance(v, list):
+                            check_required_fields(v[0], item, errors, array_path)
+                        else:
+                            # For dot notation arrays that haven't been normalized yet
+                            field_schema = {"dummy": v}
+                            check_required_fields(field_schema, {"dummy": item}, errors, array_path)
+            elif k not in payload:
+                errors.append(f"{new_path} is required")
+            elif isinstance(v, (dict, list)):
+                check_required_fields(v, payload[k], errors, new_path)
+
+    elif isinstance(schema, list) and len(schema) > 0:
+        if not isinstance(payload, list):
+            return
+        for i, item in enumerate(payload):
+            check_required_fields(schema[0], item, errors, f"{path}[{i}]")
+
+
 def normalise(schema, start=None):
     if start is None:
         start = []
@@ -24,11 +80,10 @@ def normalise(schema, start=None):
                 "Can't normalise {} as it contains more keys {} than expected".format(start + ["*"], [k for k in schema.keys() if k != "*"])
             )
 
-        # Track array vs dict keys
+        # First pass: Check for array vs dict conflicts
         array_keys = set()
         dict_keys = set()
 
-        # First detect any conflicts
         for k in schema.keys():
             if "." not in k:
                 continue
@@ -40,90 +95,86 @@ def normalise(schema, start=None):
                 array_keys.add(base_key[1:-1])  # Remove brackets
             else:
                 dict_keys.add(base_key)
+                # Also check if any part of the path is using array notation
+                for part in parts[1:]:
+                    if part.startswith("[") and part.endswith("]"):
+                        array_keys.add(part[1:-1])
 
         # Check for conflicts
         conflicts = array_keys.intersection(dict_keys)
         if conflicts:
             raise SchemaError("Ambiguous schema: '{}' is used both as array and dict pattern".format(list(conflicts)[0]))
 
-        # First pass - identify array patterns and group their fields
-        array_fields = {}  # Will store array_key -> fields mapping
+        # Second pass: Group fields by their root array
+        array_groups = {}
+        regular_fields = {}
 
+        for k, v in list(schema.items()):
+            if "." not in k:
+                regular_fields[k] = v
+                continue
+
+            parts = k.split(".")
+            if parts[0].startswith("["):
+                root_array = parts[0][1:-1]
+                if root_array not in array_groups:
+                    array_groups[root_array] = {}
+                array_groups[root_array][k] = v
+            else:
+                regular_fields[k] = v
+            del schema[k]
+
+        # Add back regular fields
+        schema.update(regular_fields)
+
+        # Third pass: Process each array group
+        for array_key, fields in array_groups.items():
+            array_schema = {}
+
+            # Group fields by their nested structure
+            for field_path, value in fields.items():
+                parts = field_path.split(".")
+                # Skip the root array part
+                parts = parts[1:]
+
+                current = array_schema
+                for i, part in enumerate(parts):
+                    if part.startswith("["):
+                        # Handle nested array
+                        array_name = part[1:-1]
+                        if array_name not in current:
+                            current[array_name] = [{}]
+                        if i == len(parts) - 1:
+                            # This shouldn't happen - arrays should have fields
+                            continue
+                        current = current[array_name][0]
+                    else:
+                        if i == len(parts) - 1:
+                            # Last part is the field name
+                            current[part] = value
+                        else:
+                            if part not in current:
+                                current[part] = {}
+                            current = current[part]
+
+            schema[array_key] = [array_schema]
+
+        # Process remaining dot notation fields
         for k in list(schema.keys()):
             if "." not in k:
                 continue
 
             parts = k.split(".")
-            if not parts[0].startswith("["):
-                # Handle regular dot notation
-                try:
-                    sch = schema
-                    sofar = []
-                    for s in parts[:-1]:
-                        if s in sch:
-                            sch = sch[s]
-                        else:
-                            sch[s] = {}
-                            sch = sch[s]
-                        sofar.append(s)
-                    sch[parts[-1]] = schema[k]
-                    del schema[k]
-                except TypeError:
-                    raise SchemaError("Can't normalise {} as it conflicts with existing structure".format(k))
-                continue
-
-            # Get the first array key
-            array_key = parts[0][1:-1]  # Remove brackets
-
-            if array_key not in array_fields:
-                array_fields[array_key] = {}
-
-            # Remove the first array part and store remaining path
-            remaining_path = ".".join(parts[1:])
-            array_fields[array_key][remaining_path] = schema[k]
-            del schema[k]
-
-        # Second pass - process each array pattern
-        for array_key, fields in array_fields.items():
-            if array_key not in schema:
-                schema[array_key] = [{}]
-
-            # Group nested array fields
-            nested_arrays = {}
-            regular_fields = {}
-
-            for field_path, value in fields.items():
-                if "." not in field_path:
-                    regular_fields[field_path] = value
-                    continue
-
-                parts = field_path.split(".")
-                if parts[0].startswith("["):
-                    nested_key = parts[0][1:-1]
-                    if nested_key not in nested_arrays:
-                        nested_arrays[nested_key] = {}
-                    nested_arrays[nested_key][".".join(parts[1:])] = value
-                else:
-                    regular_fields[field_path] = value
-
-            # Add regular fields to array schema
-            for field, value in regular_fields.items():
-                if "." in field:
-                    parts = field.split(".")
-                    current = schema[array_key][0]
-                    for part in parts[:-1]:
-                        if part not in current:
-                            current[part] = {}
-                        current = current[part]
-                    current[parts[-1]] = value
-                else:
-                    schema[array_key][0][field] = value
-
-            # Process nested arrays recursively
-            for nested_key, nested_fields in nested_arrays.items():
-                nested_schema = {"[" + nested_key + "]." + k: v for k, v in nested_fields.items()}
-                normalised = normalise(nested_schema)
-                schema[array_key][0].update(normalised)
+            try:
+                current = schema
+                for part in parts[:-1]:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+                current[parts[-1]] = schema[k]
+                del schema[k]
+            except TypeError:
+                raise SchemaError("Can't normalise {} as it conflicts with existing structure".format(k))
 
     return schema
 
@@ -143,14 +194,12 @@ primitives = {
 
 
 def decorate(payload):
-    # Decorate the payload, i.e if string add quotations, if list add brackets
     if type(payload) is str:
         return "'{}'".format(payload)
     return payload
 
 
 def msg(schema):
-    # Returns human-friendly validation error message for schema type using .msg attribute (e.g. "must be integer", "must be null", etc.)
     if schema is None:
         return "null"
     if is_primitive_value(schema):
@@ -173,19 +222,14 @@ def is_primitive_type(schema):
 def is_valid_schema(schema):
     global primitives
 
-    # Handle collections
     if type(schema) in (set, list, tuple):
         return all([is_valid_schema(s) for s in schema])
 
-    # Handle dictionaries
     if type(schema) is dict:
-        # If dict has "*", it should be the only key
         if "*" in schema and len(schema) > 1:
             return False
-        # Recursively validate all values in dict
         return all(is_valid_schema(v) for v in schema.values())
 
-    # Handle primitives and tissue functions
     if type(schema) in primitives:
         return True
 
@@ -207,12 +251,14 @@ def validate(schema, payload, errors=None):
 
     normalise(schema)
 
+    # Check required fields first
+    check_required_fields(schema, payload, errors)
+
     if type(schema) is dict:
         if type(payload) is not dict:
             errors.append("must be dict")
             return False
 
-        # Handle wildcard schema
         if "*" in schema:
             wildcard_schema = schema["*"]
             for key, value in payload.items():
@@ -223,7 +269,6 @@ def validate(schema, payload, errors=None):
             sort_unique(errors)
             return not errors
 
-        # Handle normal dict schema
         for k in schema:
             if type(k) is str:
                 if k not in payload:
@@ -232,8 +277,6 @@ def validate(schema, payload, errors=None):
                 validate(schema[k], payload.get(k), E)
                 for e in E:
                     errors.append("['{}']{}".format(k, e))
-        sort_unique(errors)
-        return not errors
 
     elif type(schema) is list:
         if type(payload) is not list:
@@ -258,8 +301,6 @@ def validate(schema, payload, errors=None):
                 errors.append(" must be either {} or {} (but {})".format(", ".join(labels[:-1]), labels[-1], payload))
             else:
                 errors.append("{} must be {}".format(payload, msg(schema[0])))
-        sort_unique(errors)
-        return not errors
 
     elif type(schema) is tuple:
         all_valid = True
@@ -267,7 +308,6 @@ def validate(schema, payload, errors=None):
             if not validate(s, payload):
                 errors.append("{} must be {}".format(payload, msg(s)))
                 all_valid = False
-        sort_unique(errors)
         return all_valid
 
     else:

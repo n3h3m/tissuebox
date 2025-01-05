@@ -396,20 +396,31 @@ class TestComplexSyntax(TestCase):
         assert expected == e
 
     def test_subschema(self):
-        kid = {"name": str, "age": int, "grade": int, "sex": {"Male", "Female"}}
-        schema = {"name": str, "active": bool, "age": int, "pets": [str], "kids": [kid]}
+        kid = {
+            "name": str,
+            "age": int,
+            "grade": int,
+            "sex": {"Male", "Female"},
+        }
+        schema = {
+            "name": str,
+            "active": bool,
+            "age": int,
+            "pets": [str],
+            "kids": [kid],
+        }
         payload = {
             "name": "Roger",
             "active": True,
             "age": 38,
             "pets": ["Jimmy", "Roger", "Jessey"],
-            "kids": [{"name": "Billy", "age": 10, "grade": 4}, {"name": "Christina", "age": 13, "grade": 8, "sex": "Female"}],
+            "kids": [
+                {"name": "Billy", "age": 10, "grade": 4, "sex": "Male"},
+                {"name": "Christina", "age": 13, "grade": 8, "sex": "Female"},
+            ],
         }
-        assert validate(schema, payload)
-
-        # Non-existing keys are just fine
-        del payload["kids"][1]["grade"]
-        assert validate(schema, payload)
+        errors = []
+        assert validate(schema, payload, errors)
 
         # Try passing different value
         payload["kids"][1]["grade"] = None
@@ -521,24 +532,36 @@ class TestWildcardValidation(TestCase):
         valid_payload = {
             "users": {
                 "user1": {"name": "John", "age": 25},
-                "user2": {"name": "Jane"},  # age missing is fine
-                "user3": {"age": 40},  # name missing is fine
-                "user4": {},  # empty dict is fine too
+                "user2": {"name": "Jane"},
+                "user3": {"age": 40},
+                "user4": {},
             }
         }
-        assert validate(schema, valid_payload)
+        errors = []
+        assert not validate(schema, valid_payload, errors)
+        assert errors == [
+            "['users']['user2']['age'] is required",
+            "['users']['user3']['name'] is required",
+            "['users']['user4']['age'] is required",
+            "['users']['user4']['name'] is required",
+        ]
 
         # Should fail - has wrong types for present values
         errors = []
         invalid_payload = {
             "users": {
-                "user1": {"name": "John", "age": "25"},  # age present but wrong type
-                "user2": {"name": True},  # name present but wrong type
-                "user3": {"age": 40},  # this is fine - name not present
+                "user1": {"name": "John", "age": "25"},
+                "user2": {"name": True},
+                "user3": {"age": 40},
             }
         }
         assert not validate(schema, invalid_payload, errors)
-        assert len(errors) == 2  # only two errors, for wrong types
+        assert errors == [
+            "['users']['user1']['age'] must be integer (but '25')",
+            "['users']['user2']['age'] is required",
+            "['users']['user2']['name'] must be string (but True)",
+            "['users']['user3']['name'] is required",
+        ]
 
     def test_wildcard_array_elements(self):
         """Test wildcard for validating array elements with consistent structure"""
@@ -570,26 +593,98 @@ class TestWildcardValidation(TestCase):
 
 
 class TestArrayNotationValidation(TestCase):
+
+    def test_normalise(self):
+        schema = {
+            "name": "x",
+            "active": "x",
+            "pets": ["x"],
+            "[kids].name": "x",
+            "[kids].age": "x",
+            "[kids].grade": "x",
+        }
+
+        normalise(schema)
+
+        expected = {
+            "name": "x",
+            "active": "x",
+            "pets": ["x"],
+            "kids": [
+                {
+                    "name": "x",
+                    "age": "x",
+                    "grade": "x",
+                },
+            ],
+        }
+
+        assert schema == expected
+
+        schema = {
+            "name": "x",
+            "[children].name": "x",
+            "[children].age": "x",
+            "[children].[pets].type": "x",
+            "[children].[pets].age": "x",
+        }
+
+        normalise(schema)
+
+        expected = {
+            "name": "x",
+            "children": [
+                {
+                    "name": "x",
+                    "age": "x",
+                    "pets": [
+                        {
+                            "type": "x",
+                            "age": "x",
+                        }
+                    ],
+                },
+            ],
+        }
+
+        assert schema == expected
+
     def test_validate_array_schema(self):
         # Schema using array notation
-        schema = {"name": str, "active": bool, "pets": [str], "[kids].name": str, "[kids].age": int, "[kids].grade": int}
+        schema = {
+            "name": str,
+            "active": bool,
+            "pets": [str],
+            "[kids].name": str,
+            "[kids].age": int,
+            "[kids].grade": int,
+        }
 
         # Valid payload - with multiple kids
-        valid_payload = {
+        payload = {
             "name": "John",
             "active": True,
             "pets": ["dog", "cat"],
             "kids": [
                 {"name": "Alice", "age": 10, "grade": 5},
                 {"name": "Bob", "age": 8, "grade": 3},
-                {"name": "Charlie", "grade": 4},  # Missing age is fine by tissuebox philosophy
+                {"name": "Charlie", "grade": 4, "age": 12},
             ],
         }
-        assert validate(schema, valid_payload)
+        errors = []
+        validate(schema, payload, errors)
+        print(schema, payload, errors)
 
-        # Valid payload - with no kids (array fields are optional)
-        valid_payload_no_kids = {"name": "John", "active": True, "pets": ["dog", "cat"]}
-        assert validate(schema, valid_payload_no_kids)
+        assert validate(schema, payload)
+
+        payload = {
+            "name": "John",
+            "active": True,
+            "pets": ["dog", "cat"],
+        }
+        errors = []
+        validate(schema, payload, errors)
+        assert not validate(schema, payload)
 
         # Invalid payload - wrong types
         errors = []
@@ -598,13 +693,19 @@ class TestArrayNotationValidation(TestCase):
             "active": True,
             "pets": ["dog", "cat"],
             "kids": [
-                {"name": "Alice", "age": "10"},  # age should be int
-                {"name": True, "grade": "3"},  # name should be str, grade should be int
+                {"name": "Alice", "age": "10"},
+                {"name": True, "grade": "3"},
             ],
         }
         assert not validate(schema, invalid_payload, errors)
-        # Only check number of errors, order might vary
-        assert len(errors) == 3
+        """
+        0 = {str} "['kids'][0]['age'] must be integer (but '10')"
+        1 = {str} "['kids'][0]['grade'] is required"
+        2 = {str} "['kids'][1]['age'] is required"
+        3 = {str} "['kids'][1]['grade'] must be integer (but '3')"
+        4 = {str} "['kids'][1]['name'] must be string (but True)"
+        """
+        assert len(errors) == 5
 
         # Invalid payload - kids not an array
         errors = []
@@ -627,8 +728,7 @@ class TestArrayNotationValidation(TestCase):
             "[children].[pets].age": int,
         }
 
-        # Valid payload with nested arrays
-        valid_payload = {
+        payload = {
             "name": "John",
             "children": [
                 {
@@ -648,7 +748,16 @@ class TestArrayNotationValidation(TestCase):
                 },
             ],
         }
-        assert validate(schema, valid_payload)
+
+        errors = []
+        result = validate(schema, payload, errors)
+        assert not result
+        assert len(errors) == 3
+        assert errors == [
+            "['children'][0]['pets'][2]['age'] is required",
+            "['children'][1]['age'] is required",
+            "['children'][1]['pets'][0]['age'] is required",
+        ]
 
         # Invalid payload - wrong types in nested structure
         errors = []
