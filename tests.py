@@ -767,3 +767,62 @@ class TestArrayNotationValidation(TestCase):
         }
         assert not validate(schema, invalid_payload, errors)
         assert len(errors) == 4
+
+
+from unittest import TestCase
+from tissuebox.basic import strong_password
+from tissuebox import validate
+
+
+class TestStrongPassword(TestCase):
+    def test_strong_password_validation(self):
+        """Test strong password validator with default length (8)"""
+        validator = strong_password()
+
+        # Valid passwords
+        self.assertTrue(validator("Password1!"))
+        self.assertTrue(validator("Complex123$"))
+        self.assertTrue(validator("Abcd123!@#"))
+
+        # Invalid passwords - missing requirements
+        self.assertFalse(validator("noupperno1!"))  # No uppercase
+        self.assertFalse(validator("NOLOWERNO1!"))  # No lowercase
+        self.assertFalse(validator("NoSpecial123"))  # No special char
+        self.assertFalse(validator("NoNumber!@#"))  # No number
+        self.assertFalse(validator("Short1!"))  # Too short
+
+        # Non-string input
+        self.assertFalse(validator(12345))
+        self.assertFalse(validator(None))
+        self.assertFalse(validator([]))
+
+    def test_strong_password_custom_length(self):
+        """Test strong password validator with custom minimum length"""
+        validator = strong_password(min_len=12)
+
+        # Valid passwords (12+ chars)
+        self.assertTrue(validator("SuperStrong123!"))
+        self.assertTrue(validator("VeryComplex123$#"))
+
+        # Invalid passwords - too short
+        self.assertFalse(validator("Short123!Aa"))  # 11 chars
+
+        # Check that other requirements still apply
+        self.assertFalse(validator("toolongbutnoupperno1!"))  # No uppercase
+        self.assertFalse(validator("TOOLONGBUTNOLOWERNO1!"))  # No lowercase
+        self.assertFalse(validator("TooLongNoSpecial123"))  # No special char
+        self.assertFalse(validator("TooLongNoNumber!!!"))  # No number
+
+    def test_strong_password_in_schema(self):
+        """Test using strong_password in a schema"""
+        schema = {"username": str, "password": strong_password(min_len=10)}
+
+        # Valid payload
+        valid_payload = {"username": "john_doe", "password": "SecurePass123!"}
+        self.assertTrue(validate(schema, valid_payload))
+
+        # Invalid payload
+        invalid_payload = {"username": "john_doe", "password": "weak"}
+        errors = []
+        self.assertFalse(validate(schema, invalid_payload, errors))
+        self.assertTrue(any("strong password" in err for err in errors))

@@ -114,3 +114,34 @@ def divisible(n):
 
     divisible.msg = f"multiple of {n}"
     return divisible
+
+
+def strong_password(min_len=8):
+    """
+    Returns a validator function that checks if a password is strong enough.
+    Requirements:
+    - At least minlength characters long (default 8)
+    - Contains at least one uppercase letter
+    - Contains at least one lowercase letter
+    - Contains at least one number
+    - Contains at least one special character
+    """
+
+    def f(x):
+        if not isinstance(x, str):
+            return False
+
+        if len(x) < min_len:
+            return False
+
+        has_upper = any(c.isupper() for c in x)
+        has_lower = any(c.islower() for c in x)
+        has_digit = any(c.isdigit() for c in x)
+        has_special = any(not c.isalnum() for c in x)
+
+        return has_upper and has_lower and has_digit and has_special
+
+    # Set message for error reporting
+    f.msg = f"a strong password (min {min_len} chars with uppercase, lowercase, number, and special character)"
+
+    return f
