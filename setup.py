@@ -8,15 +8,12 @@ except FileNotFoundError:
 
 setup(
     name="tissuebox",
-    version="2019.01.22",
+    version="25.01.02",
     description="Tissuebox :: Pythonic payload validator",
-    author="nehem",
+    author="nehemiah",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    author_email="nehemiah.jacob@gmail.com",
+    author_email="nehemiah@skytechlabs.com.au",
     url="https://github.com/nehemiahjacob/tissuebox.git",
-    install_requires=[
-        "jsonpickle==1.1",
-    ],
     packages=["tissuebox"],
 )
