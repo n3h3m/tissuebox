@@ -826,3 +826,159 @@ class TestStrongPassword(TestCase):
         errors = []
         self.assertFalse(validate(schema, invalid_payload, errors))
         self.assertTrue(any("strong password" in err for err in errors))
+
+
+from unittest import TestCase
+from tissuebox import validate
+from tissuebox.basic import string, integer, email
+
+
+class TestFieldNameAwareness(TestCase):
+    def setUp(self):
+        # Create a custom validator that tracks field names
+        def field_tracking_validator(x, field=None):
+            field_tracking_validator.last_field = field
+            return isinstance(x, str)
+
+        field_tracking_validator.msg = "field tracking validator"
+        field_tracking_validator.last_field = None
+        self.field_tracker = field_tracking_validator
+
+    def test_basic_field_passing(self):
+        """Test that field names are passed to basic validators"""
+        schema = {"username": self.field_tracker, "email": self.field_tracker}
+
+        payload = {"username": "john_doe", "email": "john@example.com"}
+
+        validate(schema, payload)
+        self.assertEqual(self.field_tracker.last_field, "email")
+
+    def test_nested_field_passing(self):
+        """Test that field names are passed correctly in nested structures"""
+        schema = {"user": {"profile": {"name": self.field_tracker}}}
+
+        payload = {"user": {"profile": {"name": "John Doe"}}}
+
+        validate(schema, payload)
+        self.assertEqual(self.field_tracker.last_field, "name")
+
+    def test_array_field_passing(self):
+        """Test that field names are passed correctly in arrays"""
+        schema = {"users": [{"name": self.field_tracker}]}
+
+        payload = {"users": [{"name": "John"}, {"name": "Jane"}]}
+
+        validate(schema, payload)
+        self.assertEqual(self.field_tracker.last_field, "name")
+
+    def test_field_specific_validation(self):
+        """Test a validator that changes behavior based on field name"""
+
+        def field_specific_validator(x, field=None):
+            if field == "password":
+                # Require at least 8 chars for passwords
+                return isinstance(x, str) and len(x) >= 8
+            elif field == "username":
+                # Require at least 3 chars for usernames
+                return isinstance(x, str) and len(x) >= 3
+            return True
+
+        field_specific_validator.msg = "field specific validator"
+
+        schema = {"username": field_specific_validator, "password": field_specific_validator}
+
+        # Valid payload
+        valid_payload = {"username": "joe", "password": "securepass"}  # 3 chars  # 10 chars
+        self.assertTrue(validate(schema, valid_payload))
+
+        # Invalid username (too short)
+        invalid_username = {"username": "jo", "password": "securepass"}  # 2 chars
+        self.assertFalse(validate(schema, invalid_username))
+
+        # Invalid password (too short)
+        invalid_password = {"username": "joe", "password": "short"}  # 5 chars
+        self.assertFalse(validate(schema, invalid_password))
+
+    def test_wildcard_field_passing(self):
+        """Test that field names are passed correctly with wildcard schemas"""
+        schema = {"config": {"*": self.field_tracker}}
+
+        payload = {"config": {"setting1": "value1", "setting2": "value2"}}
+
+        validate(schema, payload)
+        self.assertEqual(self.field_tracker.last_field, "setting2")
+
+    def test_array_notation_field_passing(self):
+        """Test that field names are passed correctly with array notation"""
+        schema = {"[users].name": self.field_tracker, "[users].email": self.field_tracker}
+
+        payload = {"users": [{"name": "John", "email": "john@example.com"}, {"name": "Jane", "email": "jane@example.com"}]}
+
+        validate(schema, payload)
+        # Should receive the last field name processed
+        self.assertEqual(self.field_tracker.last_field, "email")
+
+    def test_combination_validation(self):
+        """Test complex validation combining multiple field-aware validators"""
+
+        def length_validator(min_length):
+            def validate_length(x, field=None):
+                if not isinstance(x, str):
+                    return False
+                return len(x) >= min_length
+
+            validate_length.msg = f"at least {min_length} characters"
+            return validate_length
+
+        def field_format_validator(x, field=None):
+            if field == "username":
+                # Username must be alphanumeric
+                return isinstance(x, str) and x.isalnum()
+            elif field == "email":
+                # Use built-in email validator
+                return email(x)
+            return True
+
+        field_format_validator.msg = "properly formatted"
+
+        schema = {"username": (length_validator(3), field_format_validator), "email": (length_validator(5), field_format_validator)}
+
+        # Valid payload
+        valid_payload = {"username": "john123", "email": "john@example.com"}
+        self.assertTrue(validate(schema, valid_payload))
+
+        # Invalid username (special characters)
+        invalid_username = {"username": "john@123", "email": "john@example.com"}
+        self.assertFalse(validate(schema, invalid_username))
+
+        # Invalid email (wrong format)
+        invalid_email = {"username": "john123", "email": "not-an-email"}
+        self.assertFalse(validate(schema, invalid_email))
+
+
+class TestBackwardCompatibility(TestCase):
+    """Test that the field name changes don't break existing functionality"""
+
+    def test_basic_types_still_work(self):
+        """Test that basic types still work without field names"""
+        schema = {"name": string, "age": integer, "contact": email}
+
+        valid_payload = {"name": "John Doe", "age": 30, "contact": "john@example.com"}
+
+        self.assertTrue(validate(schema, valid_payload))
+
+        invalid_payload = {"name": 123, "age": "30", "contact": "not-an-email"}  # Should be string  # Should be integer  # Should be email
+
+        self.assertFalse(validate(schema, invalid_payload))
+
+    def test_existing_test_cases(self):
+        """Test that existing complex validation scenarios still work"""
+        schema = {"user": {"profile": {"name": string, "age": integer, "emails": [email]}}}
+
+        valid_payload = {"user": {"profile": {"name": "John Doe", "age": 30, "emails": ["john@example.com", "doe@example.com"]}}}
+
+        self.assertTrue(validate(schema, valid_payload))
+
+        invalid_payload = {"user": {"profile": {"name": "John Doe", "age": 30, "emails": ["not-an-email", 123]}}}  # Invalid emails
+
+        self.assertFalse(validate(schema, invalid_payload))

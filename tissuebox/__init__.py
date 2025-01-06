@@ -242,9 +242,11 @@ def is_valid_schema(schema):
     return False
 
 
-def validate(schema, payload, errors=None):
+def validate(schema, payload, errors=None, field_path=None):
     if errors is None:
         errors = []
+    if field_path is None:
+        field_path = []
 
     if not is_valid_schema(schema):
         raise SchemaError("Schema is invalid, Use SchemaInspector to debug the schema")
@@ -263,7 +265,8 @@ def validate(schema, payload, errors=None):
             wildcard_schema = schema["*"]
             for key, value in payload.items():
                 E = []
-                validate(wildcard_schema, value, E)
+                new_path = field_path + [key]
+                validate(wildcard_schema, value, E, new_path)
                 for e in E:
                     errors.append("['{}']{}".format(key, e))
             sort_unique(errors)
@@ -274,7 +277,8 @@ def validate(schema, payload, errors=None):
                 if k not in payload:
                     continue
                 E = []
-                validate(schema[k], payload.get(k), E)
+                new_path = field_path + [k]
+                validate(schema[k], payload.get(k), E, new_path)
                 for e in E:
                     errors.append("['{}']{}".format(k, e))
 
@@ -288,14 +292,15 @@ def validate(schema, payload, errors=None):
 
         for i, p in enumerate(payload):
             E = []
-            validate(schema[0], p, E)
+            new_path = field_path + [str(i)]
+            validate(schema[0], p, E, new_path)
             for e in E:
                 errors.append("[{}]{}".format(i, e))
         return not errors
 
     elif type(schema) is set:
         schema = list(schema)
-        if not any([validate(s, payload) for s in schema]):
+        if not any([validate(s, payload, field_path=field_path) for s in schema]):
             if len(schema) > 1:
                 labels = sorted([msg(s) for s in schema])
                 errors.append(" must be either {} or {} (but {})".format(", ".join(labels[:-1]), labels[-1], payload))
@@ -305,7 +310,7 @@ def validate(schema, payload, errors=None):
     elif type(schema) is tuple:
         all_valid = True
         for s in schema:
-            if not validate(s, payload):
+            if not validate(s, payload, field_path=field_path):
                 errors.append("{} must be {}".format(payload, msg(s)))
                 all_valid = False
         return all_valid
@@ -316,7 +321,9 @@ def validate(schema, payload, errors=None):
 
         result = False
         if callable(schema):
-            result = schema(payload)
+            # Get the current field name from the path
+            current_field = field_path[-1] if field_path else None
+            result = schema(payload, field=current_field)
         elif is_primitive_value(schema):
             result = schema == payload
 
