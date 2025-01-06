@@ -103,6 +103,14 @@ def lt(n):
     return lt
 
 
+def gt(n):
+    def gt(x, field=None):
+        return x > n
+
+    gt.msg = f"greater than {n}"
+    return gt
+
+
 def divisible(n):
     def divisible(x, field=None):
         return numeric(x) and numeric(n) and x % n == 0

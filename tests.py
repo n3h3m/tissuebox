@@ -1,11 +1,10 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from tissuebox import SchemaError, normalise, sort_unique, is_valid_schema, validate as v, not_
-from tissuebox import validate
-from tissuebox.basic import divisible, lt, uuid4
-from tissuebox.basic import integer, string, email, url, numeric
-from tissuebox.basic import strong_password
+from tissuebox import normalise, sort_unique, is_valid_schema, validate as v, not_
+from tissuebox import validate, _, SchemaError
+from tissuebox.basic import integer, string, numeric, email, url, strong_password, divisible, lt
+from tissuebox.basic import uuid4, gt
 
 
 class TestMiscellaneous(TestCase):
@@ -1104,7 +1103,6 @@ class TestNotTissue(TestCase):
         self.assertFalse(validate(schema, {"field": "test_value"}))
 
     def test_dotted_notation(self):
-        """Test underscore with dotted notation"""
         schema = {"user.settings.[devices].status": (integer, string, numeric)}
 
         payload = {"user": {"settings": {"devices": [{"status": "invalid1"}, {"status": "invalid2"}]}}}
@@ -1118,3 +1116,233 @@ class TestNotTissue(TestCase):
             "['user'] ['settings'] ['devices'] [1] ['status'] must be integer (but 'invalid2')",
             "['user'] ['settings'] ['devices'] [1] ['status'] must be numeric (but 'invalid2')",
         ]
+
+
+class TestUnderscoreValidation(TestCase):
+    def setUp(self):
+        """Setup common test schemas"""
+        self.basic_validators = (integer, string, numeric)
+        self.complex_validators = (email, url, strong_password(min_len=8))
+        self.compound_validators = (divisible(3), lt(10), numeric)
+
+    def test_basic_underscore_validation(self):
+        """Test basic underscore behavior with simple validators"""
+        schema = {"field": _(self.basic_validators)}
+
+        # Should stop at first failure (integer)
+        errors = []
+        validate(schema, {"field": "test"}, errors)
+        self.assertEqual(errors, ["['field'] must be integer (but 'test')"])
+
+        # Should pass all validations
+        errors = []
+        validate(schema, {"field": 5}, errors)
+        assert errors == ["['field'] must be string (but 5)"]
+
+    def test_regular_validation_comparison(self):
+        """Compare underscore behavior with regular validation"""
+        lazy_schema = {"field": _(self.basic_validators)}
+        regular_schema = {"field": self.basic_validators}
+
+        test_value = True  # Will fail all validators
+
+        # Lazy validation - should only show integer error
+        lazy_errors = []
+        validate(lazy_schema, {"field": test_value}, lazy_errors)
+        self.assertEqual(lazy_errors, ["['field'] must be integer (but True)"])
+
+        # Regular validation - should show all errors
+        regular_errors = []
+        validate(regular_schema, {"field": test_value}, regular_errors)
+        self.assertEqual(
+            regular_errors, ["['field'] must be integer (but True)", "['field'] must be numeric (but True)", "['field'] must be string (but True)"]
+        )
+
+    def test_array_validation(self):
+        """Test underscore with array validation"""
+        schema = {"items": [_(self.basic_validators)]}
+
+        payload = {"items": ["invalid1", "invalid2", "invalid3"]}
+
+        errors = []
+        validate(schema, payload, errors)
+
+        assert errors == [
+            "['items'] [0] must be integer (but 'invalid1')",
+            "['items'] [1] must be integer (but 'invalid2')",
+            "['items'] [2] must be integer (but 'invalid3')",
+        ]
+
+    def test_complex_validators(self):
+        """Test underscore with complex validators"""
+        schema = {"fields": [_((divisible(3), lt(10), gt(-50)))]}
+
+        payload = {"fields": [15, 20, -120]}  # All fail divisible(3)
+
+        errors = []
+        validate(schema, payload, errors)
+
+        assert errors == [
+            "['fields'] [0] must be less than 10 (but 15)",
+            "['fields'] [1] must be multiple of 3 (but 20)",
+            "['fields'] [2] must be greater than -50 (but -120)",
+        ]
+
+    def test_dotted_notation(self):
+        """Test underscore with dotted notation"""
+        schema = {"user.settings.[devices].status": _(self.basic_validators)}
+
+        payload = {
+            "user": {
+                "settings": {
+                    "devices": [
+                        {"status": "invalid1"},
+                        {"status": 1},
+                    ]
+                }
+            }
+        }
+
+        errors = []
+        validate(schema, payload, errors)
+
+        self.assertEqual(
+            errors,
+            [
+                "['user'] ['settings'] ['devices'] [0] ['status'] must be integer (but 'invalid1')",
+                "['user'] ['settings'] ['devices'] [1] ['status'] must be string (but 1)",
+            ],
+        )
+
+    def test_wildcard_with_underscore(self):
+        """Test underscore with wildcard patterns"""
+        schema = {"config": {"*": _(self.basic_validators)}}
+
+        payload = {"config": {"setting1": "invalid", "setting2": False, "setting3": None}}
+
+        errors = []
+        validate(schema, payload, errors)
+
+        self.assertEqual(
+            errors,
+            [
+                "['config'] ['setting1'] must be integer (but 'invalid')",
+                "['config'] ['setting2'] must be integer (but False)",
+                "['config'] ['setting3'] must be integer (but None)",
+            ],
+        )
+
+    def test_required_fields(self):
+        """Test underscore with required fields"""
+        schema = {"required_field": _(self.basic_validators)}
+
+        errors = []
+        validate(schema, {}, errors)
+
+        self.assertEqual(errors, ["['required_field'] is required"])
+
+    def test_nested_required_fields(self):
+        """Test underscore with nested required fields"""
+        schema = {
+            "user": {
+                "profile": {
+                    "name": _((integer, string, numeric)),
+                }
+            }
+        }
+
+        payload = {
+            "user": {
+                "profile": {},
+            }
+        }
+
+        errors = []
+        validate(schema, payload, errors)
+
+        self.assertEqual(  # todo start a new thread
+            errors,
+            [
+                "['user'] ['profile'] ['name'] is required",
+                "['user'] ['profile']['name'] is required",
+                "['user']['profile']['name'] is required",
+            ],
+        )
+
+    def test_array_required_fields(self):
+        """Test underscore with array required fields"""
+        schema = {"[items].value": _(self.basic_validators)}
+
+        payload = {"items": [{}, {"value": "xxx"}, {}]}  # Missing value  # Missing value
+
+        errors = []
+        validate(schema, payload, errors)
+
+        assert errors == [
+            "['items'] [0] ['value'] is required",
+            "['items'] [1] ['value'] must be integer (but 'xxx')",
+            "['items'] [2] ['value'] is required",
+            "['items'][0]['value'] is required",
+            "['items'][2]['value'] is required",
+        ]
+
+    def test_edge_cases(self):
+        """Test edge cases with underscore"""
+
+        # Single validator
+        schema = {"field": _(integer)}
+        errors = []
+        validate(schema, {"field": "invalid"}, errors)
+        self.assertEqual(errors, ["['field'] must be integer (but 'invalid')"])
+
+        # Same validator multiple times
+        schema = {"field": _((integer, integer, integer))}
+        errors = []
+        validate(schema, {"field": "invalid"}, errors)
+        self.assertEqual(errors, ["['field'] must be integer (but 'invalid')"])
+
+        # Complex nested structure
+        schema = {
+            "user": {
+                "profile": {
+                    "settings": {
+                        "[devices]": {
+                            "status": _((integer, string, numeric)),
+                            "config": {
+                                "*": _((divisible(3), lt(10), numeric)),
+                            },
+                        }
+                    }
+                }
+            }
+        }
+
+        payload = {
+            "user": {
+                "profile": {
+                    "settings": {
+                        "devices": [
+                            {
+                                "status": "invalid",
+                                "config": {
+                                    "param1": 15,
+                                    "param2": 20,
+                                },
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+
+        errors = []
+        validate(schema, payload, errors)
+
+        self.assertEqual(
+            errors,
+            [
+                "['user'] ['profile'] ['settings'] ['devices'] [0] ['config'] ['param1'] must be less than 10 (but 15)",
+                "['user'] ['profile'] ['settings'] ['devices'] [0] ['config'] ['param2'] must be multiple of 3 (but 20)",
+                "['user'] ['profile'] ['settings'] ['devices'] [0] ['status'] must be integer (but 'invalid')",
+            ],
+        )

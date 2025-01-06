@@ -94,94 +94,7 @@ def is_valid_schema(schema):
     return False
 
 
-def normalise(schema, start=None):
-    """Normalize schema, treating array notation fields as required."""
-    if start is None:
-        start = []
-
-    if type(schema) in [list, tuple, set]:
-        for s in schema:
-            normalise(s, start + [s])
-
-    if type(schema) is dict:
-        if "*" in schema and len(schema) > 1:
-            raise SchemaError(
-                "Can't normalise {} as it contains more keys {} than expected".format(start + ["*"], [k for k in schema.keys() if k != "*"])
-            )
-
-        # First pass: Check for array vs dict conflicts
-        array_keys = set()
-        dict_keys = set()
-
-        for k in schema.keys():
-            if "." not in k:
-                # Direct array notation check
-                if k.startswith("[") and k.endswith("]"):
-                    array_keys.add(k[1:-1])
-                continue
-
-            parts = k.split(".")
-            base_key = parts[0]
-
-            if base_key.startswith("[") and base_key.endswith("]"):
-                array_keys.add(base_key[1:-1])
-            else:
-                dict_keys.add(base_key)
-                # Check for array notation in subsequent parts
-                for part in parts[1:]:
-                    if part.startswith("[") and part.endswith("]"):
-                        array_keys.add(part[1:-1])
-
-        # Check for conflicts
-        conflicts = array_keys.intersection(dict_keys)
-        if conflicts:
-            raise SchemaError("Ambiguous schema: '{}' is used both as array and dict pattern".format(list(conflicts)[0]))
-
-        # Second pass: Process fields
-        for k in list(schema.keys()):
-            if "." not in k:
-                # Handle direct array notation
-                if k.startswith("[") and k.endswith("]"):
-                    array_key = k[1:-1]
-                    array_schema = schema[k]
-                    del schema[k]
-                    if array_key not in schema:
-                        schema[array_key] = [{}]
-                    if isinstance(array_schema, dict):
-                        schema[array_key][0].update(array_schema)
-                    else:
-                        schema[array_key][0] = array_schema
-                continue
-
-            parts = k.split(".")
-            current = schema
-            path = []
-
-            for i, part in enumerate(parts[:-1]):
-                if part.startswith("[") and part.endswith("]"):
-                    array_key = part[1:-1]
-                    if array_key not in current:
-                        current[array_key] = [{}]
-                    current = current[array_key][0]
-                else:
-                    if part not in current:
-                        current[part] = {}
-                    current = current[part]
-                path.append(part)
-
-            last_part = parts[-1]
-            if last_part.startswith("[") and last_part.endswith("]"):
-                array_key = last_part[1:-1]
-                if array_key not in current:
-                    current[array_key] = [{}]
-                current[array_key][0] = schema[k]
-            else:
-                current[last_part] = schema[k]
-            del schema[k]
-
-    return schema
-
-
+# Modify validate() function to handle early exit validation
 def validate(schema, payload, errors=None, field_path=None):
     if errors is None:
         errors = []
@@ -238,15 +151,24 @@ def validate(schema, payload, errors=None, field_path=None):
                 errors.append("[{}] {}".format(i, e))
 
     elif type(schema) is tuple:
-        all_valid = True
-        tuple_errors = []
-        for s in schema:
-            E = []
-            if not validate(s, payload, E, field_path):
-                tuple_errors.extend(E)
-                all_valid = False
-        if not all_valid:
-            errors.extend(tuple_errors)
+        # Check if this is an early exit validator
+        if hasattr(schema[0], "is_early_exit"):
+            # Run early exit validation
+            result, error = schema[0](payload, field_path[-1] if field_path else None)
+            if not result:
+                errors.append(error)
+                return False
+        else:
+            # Regular tuple validation
+            all_valid = True
+            tuple_errors = []
+            for s in schema:
+                E = []
+                if not validate(s, payload, E, field_path):
+                    tuple_errors.extend(E)
+                    all_valid = False
+            if not all_valid:
+                errors.extend(tuple_errors)
 
     elif type(schema) is set:
         if not any([validate(s, payload, field_path=field_path) for s in schema]):
@@ -263,12 +185,19 @@ def validate(schema, payload, errors=None, field_path=None):
         result = False
         if callable(schema):
             current_field = field_path[-1] if field_path else None
-            result = schema(payload, field=current_field)
+            if hasattr(schema, "is_early_exit"):
+                # Handle early exit validator
+                result, error = schema(payload, field=current_field)
+                if not result:
+                    errors.append(error)
+            else:
+                # Regular validator
+                result = schema(payload, field=current_field)
         elif is_primitive_value(schema):
             result = schema == payload
 
-        if not result:
-            # Use natural language format only for direct literal validation
+        if not result and not hasattr(schema, "is_early_exit"):
+            # Add error message for non-early exit validators
             if field_path is None and is_primitive_value(payload) and is_primitive_value(schema):
                 errors.append("{} is not {}".format(decorate(payload), msg(schema)))
             else:
@@ -285,7 +214,18 @@ def check_required_fields(schema, payload, errors, path=""):
             return
 
         for k, v in schema.items():
-            new_path = f"{path}['{k}']" if path else f"['{k}']"
+            # Handle array notation in key
+            actual_key = k[1:-1] if k.startswith("[") and k.endswith("]") else k
+            new_path = f"{path}['{actual_key}']" if path else f"['{actual_key}']"
+
+            # Special handling for array notation fields
+            if k.startswith("[") and k.endswith("]"):
+                if actual_key not in payload or not isinstance(payload[actual_key], list):
+                    errors.append(f"{new_path} must be a list")
+                elif isinstance(v, dict):
+                    for i, item in enumerate(payload[actual_key]):
+                        check_required_fields(v, item, errors, f"{new_path}[{i}]")
+                continue
 
             # Only check if field exists, don't validate type here
             if k not in payload:
@@ -297,9 +237,117 @@ def check_required_fields(schema, payload, errors, path=""):
                     check_required_fields(v[0], item, errors, f"{new_path}[{i}]")
 
 
+def normalise(schema, start=None):
+    """Normalize schema, treating array notation fields as required."""
+    if start is None:
+        start = []
+
+    if type(schema) in [list, tuple, set]:
+        for s in schema:
+            normalise(s, start + [s])
+
+    if type(schema) is dict:
+        if "*" in schema and len(schema) > 1:
+            raise SchemaError(
+                "Can't normalise {} as it contains more keys {} than expected".format(start + ["*"], [k for k in schema.keys() if k != "*"])
+            )
+
+        # First pass: Check for array vs dict conflicts
+        array_keys = set()
+        dict_keys = set()
+
+        for k in schema.keys():
+            # Handle direct array notation
+            if k.startswith("[") and k.endswith("]"):
+                array_keys.add(k[1:-1])
+                continue
+
+            if "." not in k:
+                dict_keys.add(k)
+                continue
+
+            parts = k.split(".")
+            base_key = parts[0]
+
+            if base_key.startswith("[") and base_key.endswith("]"):
+                array_keys.add(base_key[1:-1])
+            else:
+                dict_keys.add(base_key)
+
+        # Check for conflicts
+        conflicts = array_keys.intersection(dict_keys)
+        if conflicts:
+            raise SchemaError("Ambiguous schema: '{}' is used both as array and dict pattern".format(list(conflicts)[0]))
+
+        # Second pass: Process fields
+        for k in list(schema.keys()):
+            if k.startswith("[") and k.endswith("]"):
+                # Handle array notation directly
+                array_key = k[1:-1]
+                array_schema = schema[k]
+                del schema[k]
+                schema[array_key] = [array_schema]
+                continue
+
+            if "." not in k:
+                continue
+
+            parts = k.split(".")
+            current = schema
+            path = []
+
+            for i, part in enumerate(parts[:-1]):
+                if part.startswith("[") and part.endswith("]"):
+                    array_key = part[1:-1]
+                    if array_key not in current:
+                        current[array_key] = [{}]
+                    current = current[array_key][0]
+                else:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+                path.append(part)
+
+            last_part = parts[-1]
+            if last_part.startswith("[") and last_part.endswith("]"):
+                array_key = last_part[1:-1]
+                if array_key not in current:
+                    current[array_key] = [{}]
+                current[array_key][0] = schema[k]
+            else:
+                current[last_part] = schema[k]
+            del schema[k]
+
+    return schema
+
+
 def not_(validator):
     def not_(x, field=None):
         return not validate(validator, x, field_path=[field] if field else None)
 
     not_.msg = f"not {msg(validator)}"
     return not_
+
+
+def _(validator):
+    """Wrapper for early exit validation - stops on first error"""
+
+    def early_exit_validator(x, field=None):
+        if isinstance(validator, tuple):
+            # For tuples, validate each rule but exit on first failure
+            for v in validator:
+                E = []
+                if not validate(v, x, E, [field] if field else None):
+                    # Return the first error only
+                    return False, E[0] if E else "validation failed"
+            return True, None
+        else:
+            # For single validators, just run the validation
+            E = []
+            if not validate(validator, x, E, [field] if field else None):
+                return False, E[0] if E else "validation failed"
+            return True, None
+
+    early_exit_validator.msg = f"early exit {msg(validator)}"
+    early_exit_validator.is_early_exit = True
+    return early_exit_validator
