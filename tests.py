@@ -1,8 +1,11 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from tissuebox import SchemaError, normalise, sort_unique, is_valid_schema, validate, validate as v
-from tissuebox.basic import divisible, email, integer, lt, url, uuid4
+from tissuebox import SchemaError, normalise, sort_unique, is_valid_schema, validate as v, not_
+from tissuebox import validate
+from tissuebox.basic import divisible, lt, uuid4
+from tissuebox.basic import integer, string, email, url, numeric
+from tissuebox.basic import strong_password
 
 
 class TestMiscellaneous(TestCase):
@@ -769,11 +772,6 @@ class TestArrayNotationValidation(TestCase):
         assert len(errors) == 4
 
 
-from unittest import TestCase
-from tissuebox.basic import strong_password
-from tissuebox import validate
-
-
 class TestStrongPassword(TestCase):
     def test_strong_password_validation(self):
         """Test strong password validator with default length (8)"""
@@ -826,11 +824,6 @@ class TestStrongPassword(TestCase):
         errors = []
         self.assertFalse(validate(schema, invalid_payload, errors))
         self.assertTrue(any("strong password" in err for err in errors))
-
-
-from unittest import TestCase
-from tissuebox import validate
-from tissuebox.basic import string, integer, email
 
 
 class TestFieldNameAwareness(TestCase):
@@ -982,3 +975,126 @@ class TestBackwardCompatibility(TestCase):
         invalid_payload = {"user": {"profile": {"name": "John Doe", "age": 30, "emails": ["not-an-email", 123]}}}  # Invalid emails
 
         self.assertFalse(validate(schema, invalid_payload))
+
+
+class TestNotTissue(TestCase):
+    def test_basic_negation(self):
+        """Test basic negation of primitive validators"""
+        schema = {"field": not_(integer)}
+
+        # These should pass since they're not integers
+        self.assertTrue(validate(schema, {"field": "string"}))
+        self.assertTrue(validate(schema, {"field": True}))
+        self.assertTrue(validate(schema, {"field": 3.14}))
+        self.assertTrue(validate(schema, {"field": None}))
+
+        # This should fail since it is an integer
+        self.assertFalse(validate(schema, {"field": 42}))
+
+    def test_error_messages(self):
+        """Test that error messages are properly formatted"""
+        schema = {"field": not_(integer)}
+        errors = []
+        validate(schema, {"field": 42}, errors)
+        self.assertIn("must be not integer", errors[0])
+
+    def test_with_email_validator(self):
+        """Test negation of email validator"""
+        schema = {"field": not_(email)}
+
+        # These should pass since they're not valid emails
+        self.assertTrue(validate(schema, {"field": "not-an-email"}))
+        self.assertTrue(validate(schema, {"field": "missing@tld"}))
+
+        # This should fail since it's a valid email
+        self.assertFalse(validate(schema, {"field": "test@example.com"}))
+
+    def test_list_validation(self):
+        """Test using not_ in a list schema"""
+        schema = {"fields": [not_(string)]}
+
+        # Should pass - list of non-strings
+        self.assertTrue(validate(schema, {"fields": [1, 2.0, True, None]}))
+
+        # Should fail - contains strings
+        self.assertFalse(validate(schema, {"fields": [1, "string", 3]}))
+
+    def test_nested_structures(self):
+        """Test not_ in nested structures"""
+        schema = {"user": {"id": not_(string), "settings": {"values": [not_(numeric)]}}}
+
+        # Should pass
+        valid_payload = {"user": {"id": 123, "settings": {"values": ["string", True, None]}}}
+        self.assertTrue(validate(schema, valid_payload))
+
+        # Should fail
+        invalid_payload = {"user": {"id": "string-id", "settings": {"values": ["string", 3.14, True]}}}  # should not be string  # contains numeric
+        self.assertFalse(validate(schema, invalid_payload))
+
+    def test_field_awareness(self):
+        """Test that field name is properly passed through"""
+
+        def field_aware_validator(x, field=None):
+            field_aware_validator.last_field = field
+            return isinstance(x, str)
+
+        field_aware_validator.msg = "field aware"
+        field_aware_validator.last_field = None
+
+        schema = {"username": not_(field_aware_validator)}
+        validate(schema, {"username": 123})
+
+        # Check that field name was passed through
+        self.assertEqual(field_aware_validator.last_field, "username")
+
+    def test_combining_validators(self):
+        """Test using not_ with other validator combinations"""
+        # Create a schema that requires values that are neither integers nor valid URLs
+        schema = {"field": not_((integer, url))}
+
+        # Should pass - neither integer nor URL
+        self.assertTrue(validate(schema, {"field": "just a string"}))
+        self.assertTrue(validate(schema, {"field": None}))
+
+        # Should pass - is an integer but also failing to be an url
+        self.assertTrue(validate(schema, {"field": 42}))
+
+        schema = {"field": not_((str, url))}
+        self.assertFalse(validate(schema, {"field": "https://example.com"}))
+
+        schema = {"field": not_((str, url))}
+        self.assertTrue(validate(schema, {"field": "example.com"}))
+
+    def test_literal_values(self):
+        """Test not_ with literal primitive values"""
+        schema = {"field": not_(4)}
+
+        # Should pass - not equal to 4
+        self.assertTrue(validate(schema, {"field": 5}))
+        self.assertTrue(validate(schema, {"field": "4"}))
+        self.assertTrue(validate(schema, {"field": None}))
+
+        # Should fail - equals 4
+        self.assertFalse(validate(schema, {"field": 4}))
+
+        # Test with string literal
+        schema = {"field": not_("test")}
+        self.assertTrue(validate(schema, {"field": "other"}))
+        self.assertFalse(validate(schema, {"field": "test"}))
+
+    def test_custom_validators(self):
+        """Test not_ with custom validators"""
+
+        def custom_validator(x, field=None):
+            return isinstance(x, str) and x.startswith("test_")
+
+        custom_validator.msg = "test_ prefixed string"
+
+        schema = {"field": not_(custom_validator)}
+
+        # Should pass - doesn't start with test_
+        self.assertTrue(validate(schema, {"field": "other_prefix"}))
+        self.assertTrue(validate(schema, {"field": 123}))
+
+        # Should fail - starts with test_
+        self.assertFalse(validate(schema, {"field": "test_value"}))

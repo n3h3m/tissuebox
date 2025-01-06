@@ -8,7 +8,7 @@ except FileNotFoundError:
 
 setup(
     name="tissuebox",
-    version="25.01.04",
+    version="25.1.5",
     description="Tissuebox :: Pythonic payload validator",
     author="nehemiah",
     long_description=long_description,

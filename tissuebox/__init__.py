@@ -332,3 +332,11 @@ def validate(schema, payload, errors=None, field_path=None):
 
     sort_unique(errors)
     return not errors
+
+
+def not_(validator):
+    def not_(x, field=None):
+        return not validate(validator, x, field_path=[field] if field else None)
+
+    not_.msg = f"not {msg(validator)}"
+    return not_
