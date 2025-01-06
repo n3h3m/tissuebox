@@ -264,7 +264,7 @@ class TestListOfPrimitives(TestCase):
         payload = 1
         errors = []
         assert not validate(schema, payload, errors)
-        assert "1 must be list" in errors
+        assert errors == ["must be list"]
 
     def test_scheme_mixedlist_payload_within__ok(self):
         schema = [str, bool]
@@ -361,12 +361,11 @@ class TestComplexSyntax(TestCase):
 
         e = []
         assert not validate(s, 5, e)
-        assert "5 must be multiple of 2" in e
+        assert e == ["must be multiple of 2 (but 5)"]
 
         e = []
         assert not validate(s, 11, e)
-        assert "11 must be multiple of 2" in e
-        assert "11 must be less than 10" in e
+        assert e == ["must be less than 10 (but 11)", "must be multiple of 2 (but 11)"]
 
         # Validate list of parentheses
         assert validate([s], [2, 4, 6, 8])
@@ -389,14 +388,14 @@ class TestComplexSyntax(TestCase):
         p = {"name": 50, "active": "Yes", "age": "38", "pets": [1, 2, "Jessey"]}
         e = []
         assert not v(s, p, e)
-        expected = [
+
+        assert e == [
             "['active'] must be boolean (but 'Yes')",
             "['age'] must be integer (but '38')",
             "['name'] must be string (but 50)",
-            "['pets'][0] must be string (but 1)",
-            "['pets'][1] must be string (but 2)",
+            "['pets'] [0] must be string (but 1)",
+            "['pets'] [1] must be string (but 2)",
         ]
-        assert expected == e
 
     def test_subschema(self):
         kid = {
@@ -429,13 +428,13 @@ class TestComplexSyntax(TestCase):
         payload["kids"][1]["grade"] = None
         e = []
         assert not validate(schema, payload, e)
-        assert e == ["['kids'][1]['grade'] must be integer (but None)"]
+        assert e == ["['kids'] [1] ['grade'] must be integer (but None)"]
 
         # Try adding a different value other than 'male' or 'female'
         e = []
         payload["kids"][1]["sex"] = "f"
         assert not validate(schema, payload, e)
-        assert "['kids'][1]['sex'] must be either Female or Male (but f)" in e
+        assert e == ["['kids'] [1] ['grade'] must be integer (but None)", "['kids'] [1] ['sex']  must be either Female or Male (but f)"]
 
 
 class TestNormalise(TestCase):
@@ -543,10 +542,10 @@ class TestWildcardValidation(TestCase):
         errors = []
         assert not validate(schema, valid_payload, errors)
         assert errors == [
-            "['users']['user2']['age'] is required",
-            "['users']['user3']['name'] is required",
-            "['users']['user4']['age'] is required",
-            "['users']['user4']['name'] is required",
+            "['users'] ['user2'] ['age'] is required",
+            "['users'] ['user3'] ['name'] is required",
+            "['users'] ['user4'] ['age'] is required",
+            "['users'] ['user4'] ['name'] is required",
         ]
 
         # Should fail - has wrong types for present values
@@ -560,10 +559,10 @@ class TestWildcardValidation(TestCase):
         }
         assert not validate(schema, invalid_payload, errors)
         assert errors == [
-            "['users']['user1']['age'] must be integer (but '25')",
-            "['users']['user2']['age'] is required",
-            "['users']['user2']['name'] must be string (but True)",
-            "['users']['user3']['name'] is required",
+            "['users'] ['user1'] ['age'] must be integer (but '25')",
+            "['users'] ['user2'] ['age'] is required",
+            "['users'] ['user2'] ['name'] must be string (but True)",
+            "['users'] ['user3'] ['name'] is required",
         ]
 
     def test_wildcard_array_elements(self):
@@ -701,14 +700,15 @@ class TestArrayNotationValidation(TestCase):
             ],
         }
         assert not validate(schema, invalid_payload, errors)
-        """
-        0 = {str} "['kids'][0]['age'] must be integer (but '10')"
-        1 = {str} "['kids'][0]['grade'] is required"
-        2 = {str} "['kids'][1]['age'] is required"
-        3 = {str} "['kids'][1]['grade'] must be integer (but '3')"
-        4 = {str} "['kids'][1]['name'] must be string (but True)"
-        """
-        assert len(errors) == 5
+        assert errors == [
+            "['kids'] [0] ['age'] must be integer (but '10')",
+            "['kids'] [0] ['grade'] is required",
+            "['kids'] [1] ['age'] is required",
+            "['kids'] [1] ['grade'] must be integer (but '3')",
+            "['kids'] [1] ['name'] must be string (but True)",
+            "['kids'][0]['grade'] is required",
+            "['kids'][1]['age'] is required",
+        ]
 
         # Invalid payload - kids not an array
         errors = []
@@ -716,7 +716,7 @@ class TestArrayNotationValidation(TestCase):
             "name": "John",
             "active": True,
             "pets": ["dog", "cat"],
-            "kids": {"name": "Alice", "age": 10},  # Should be array, not dict
+            "kids": {"name": "Alice", "age": 10},
         }
         assert not validate(schema, invalid_array_payload, errors)
         assert len(errors) == 1
@@ -755,8 +755,12 @@ class TestArrayNotationValidation(TestCase):
         errors = []
         result = validate(schema, payload, errors)
         assert not result
-        assert len(errors) == 3
         assert errors == [
+            "['children'] [0] ['pets'] [2] ['age'] is required",
+            "['children'] [0] ['pets'][2]['age'] is required",
+            "['children'] [1] ['age'] is required",
+            "['children'] [1] ['pets'] [0] ['age'] is required",
+            "['children'] [1] ['pets'][0]['age'] is required",
             "['children'][0]['pets'][2]['age'] is required",
             "['children'][1]['age'] is required",
             "['children'][1]['pets'][0]['age'] is required",
@@ -1098,3 +1102,19 @@ class TestNotTissue(TestCase):
 
         # Should fail - starts with test_
         self.assertFalse(validate(schema, {"field": "test_value"}))
+
+    def test_dotted_notation(self):
+        """Test underscore with dotted notation"""
+        schema = {"user.settings.[devices].status": (integer, string, numeric)}
+
+        payload = {"user": {"settings": {"devices": [{"status": "invalid1"}, {"status": "invalid2"}]}}}
+
+        errors = []
+        validate(schema, payload, errors)
+
+        assert errors == [
+            "['user'] ['settings'] ['devices'] [0] ['status'] must be integer (but 'invalid1')",
+            "['user'] ['settings'] ['devices'] [0] ['status'] must be numeric (but 'invalid1')",
+            "['user'] ['settings'] ['devices'] [1] ['status'] must be integer (but 'invalid2')",
+            "['user'] ['settings'] ['devices'] [1] ['status'] must be numeric (but 'invalid2')",
+        ]

@@ -31,154 +31,6 @@ def get_required_fields(schema):
     return required_fields
 
 
-def check_required_fields(schema, payload, errors, path=""):
-    """Check if all required fields are present in payload"""
-    if isinstance(schema, dict):
-        if "*" in schema:
-            return
-
-        for k, v in schema.items():
-            new_path = f"{path}['{k}']" if path else f"['{k}']"
-
-            if k.startswith("[") and k.endswith("]"):
-                # Handle array notation
-                array_key = k[1:-1]
-                if array_key not in payload:
-                    errors.append(f"{new_path} is required")
-                elif isinstance(payload[array_key], list):
-                    for i, item in enumerate(payload[array_key]):
-                        array_path = f"{path}['{array_key}'][{i}]"
-                        if isinstance(v, list):
-                            check_required_fields(v[0], item, errors, array_path)
-                        else:
-                            # For dot notation arrays that haven't been normalized yet
-                            field_schema = {"dummy": v}
-                            check_required_fields(field_schema, {"dummy": item}, errors, array_path)
-            elif k not in payload:
-                errors.append(f"{new_path} is required")
-            elif isinstance(v, (dict, list)):
-                check_required_fields(v, payload[k], errors, new_path)
-
-    elif isinstance(schema, list) and len(schema) > 0:
-        if not isinstance(payload, list):
-            return
-        for i, item in enumerate(payload):
-            check_required_fields(schema[0], item, errors, f"{path}[{i}]")
-
-
-def normalise(schema, start=None):
-    if start is None:
-        start = []
-
-    if type(schema) in [list, tuple, set]:
-        for s in schema:
-            normalise(s, start + [s])
-
-    if type(schema) is dict:
-        if "*" in schema and len(schema) > 1:
-            raise SchemaError(
-                "Can't normalise {} as it contains more keys {} than expected".format(start + ["*"], [k for k in schema.keys() if k != "*"])
-            )
-
-        # First pass: Check for array vs dict conflicts
-        array_keys = set()
-        dict_keys = set()
-
-        for k in schema.keys():
-            if "." not in k:
-                continue
-
-            parts = k.split(".")
-            base_key = parts[0]
-
-            if base_key.startswith("[") and base_key.endswith("]"):
-                array_keys.add(base_key[1:-1])  # Remove brackets
-            else:
-                dict_keys.add(base_key)
-                # Also check if any part of the path is using array notation
-                for part in parts[1:]:
-                    if part.startswith("[") and part.endswith("]"):
-                        array_keys.add(part[1:-1])
-
-        # Check for conflicts
-        conflicts = array_keys.intersection(dict_keys)
-        if conflicts:
-            raise SchemaError("Ambiguous schema: '{}' is used both as array and dict pattern".format(list(conflicts)[0]))
-
-        # Second pass: Group fields by their root array
-        array_groups = {}
-        regular_fields = {}
-
-        for k, v in list(schema.items()):
-            if "." not in k:
-                regular_fields[k] = v
-                continue
-
-            parts = k.split(".")
-            if parts[0].startswith("["):
-                root_array = parts[0][1:-1]
-                if root_array not in array_groups:
-                    array_groups[root_array] = {}
-                array_groups[root_array][k] = v
-            else:
-                regular_fields[k] = v
-            del schema[k]
-
-        # Add back regular fields
-        schema.update(regular_fields)
-
-        # Third pass: Process each array group
-        for array_key, fields in array_groups.items():
-            array_schema = {}
-
-            # Group fields by their nested structure
-            for field_path, value in fields.items():
-                parts = field_path.split(".")
-                # Skip the root array part
-                parts = parts[1:]
-
-                current = array_schema
-                for i, part in enumerate(parts):
-                    if part.startswith("["):
-                        # Handle nested array
-                        array_name = part[1:-1]
-                        if array_name not in current:
-                            current[array_name] = [{}]
-                        if i == len(parts) - 1:
-                            # This shouldn't happen - arrays should have fields
-                            continue
-                        current = current[array_name][0]
-                    else:
-                        if i == len(parts) - 1:
-                            # Last part is the field name
-                            current[part] = value
-                        else:
-                            if part not in current:
-                                current[part] = {}
-                            current = current[part]
-
-            schema[array_key] = [array_schema]
-
-        # Process remaining dot notation fields
-        for k in list(schema.keys()):
-            if "." not in k:
-                continue
-
-            parts = k.split(".")
-            try:
-                current = schema
-                for part in parts[:-1]:
-                    if part not in current:
-                        current[part] = {}
-                    current = current[part]
-                current[parts[-1]] = schema[k]
-                del schema[k]
-            except TypeError:
-                raise SchemaError("Can't normalise {} as it conflicts with existing structure".format(k))
-
-    return schema
-
-
 primitives = {
     int: integer,
     str: string,
@@ -242,6 +94,94 @@ def is_valid_schema(schema):
     return False
 
 
+def normalise(schema, start=None):
+    """Normalize schema, treating array notation fields as required."""
+    if start is None:
+        start = []
+
+    if type(schema) in [list, tuple, set]:
+        for s in schema:
+            normalise(s, start + [s])
+
+    if type(schema) is dict:
+        if "*" in schema and len(schema) > 1:
+            raise SchemaError(
+                "Can't normalise {} as it contains more keys {} than expected".format(start + ["*"], [k for k in schema.keys() if k != "*"])
+            )
+
+        # First pass: Check for array vs dict conflicts
+        array_keys = set()
+        dict_keys = set()
+
+        for k in schema.keys():
+            if "." not in k:
+                # Direct array notation check
+                if k.startswith("[") and k.endswith("]"):
+                    array_keys.add(k[1:-1])
+                continue
+
+            parts = k.split(".")
+            base_key = parts[0]
+
+            if base_key.startswith("[") and base_key.endswith("]"):
+                array_keys.add(base_key[1:-1])
+            else:
+                dict_keys.add(base_key)
+                # Check for array notation in subsequent parts
+                for part in parts[1:]:
+                    if part.startswith("[") and part.endswith("]"):
+                        array_keys.add(part[1:-1])
+
+        # Check for conflicts
+        conflicts = array_keys.intersection(dict_keys)
+        if conflicts:
+            raise SchemaError("Ambiguous schema: '{}' is used both as array and dict pattern".format(list(conflicts)[0]))
+
+        # Second pass: Process fields
+        for k in list(schema.keys()):
+            if "." not in k:
+                # Handle direct array notation
+                if k.startswith("[") and k.endswith("]"):
+                    array_key = k[1:-1]
+                    array_schema = schema[k]
+                    del schema[k]
+                    if array_key not in schema:
+                        schema[array_key] = [{}]
+                    if isinstance(array_schema, dict):
+                        schema[array_key][0].update(array_schema)
+                    else:
+                        schema[array_key][0] = array_schema
+                continue
+
+            parts = k.split(".")
+            current = schema
+            path = []
+
+            for i, part in enumerate(parts[:-1]):
+                if part.startswith("[") and part.endswith("]"):
+                    array_key = part[1:-1]
+                    if array_key not in current:
+                        current[array_key] = [{}]
+                    current = current[array_key][0]
+                else:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+                path.append(part)
+
+            last_part = parts[-1]
+            if last_part.startswith("[") and last_part.endswith("]"):
+                array_key = last_part[1:-1]
+                if array_key not in current:
+                    current[array_key] = [{}]
+                current[array_key][0] = schema[k]
+            else:
+                current[last_part] = schema[k]
+            del schema[k]
+
+    return schema
+
+
 def validate(schema, payload, errors=None, field_path=None):
     if errors is None:
         errors = []
@@ -251,10 +191,10 @@ def validate(schema, payload, errors=None, field_path=None):
     if not is_valid_schema(schema):
         raise SchemaError("Schema is invalid, Use SchemaInspector to debug the schema")
 
-    normalise(schema)
-
-    # Check required fields first
-    check_required_fields(schema, payload, errors)
+    # Only normalize if schema is a dict
+    if isinstance(schema, dict):
+        schema = normalise(schema.copy())
+        check_required_fields(schema, payload, errors)
 
     if type(schema) is dict:
         if type(payload) is not dict:
@@ -268,7 +208,7 @@ def validate(schema, payload, errors=None, field_path=None):
                 new_path = field_path + [key]
                 validate(wildcard_schema, value, E, new_path)
                 for e in E:
-                    errors.append("['{}']{}".format(key, e))
+                    errors.append("['{}'] {}".format(key, e))
             sort_unique(errors)
             return not errors
 
@@ -278,13 +218,13 @@ def validate(schema, payload, errors=None, field_path=None):
                     continue
                 E = []
                 new_path = field_path + [k]
-                validate(schema[k], payload.get(k), E, new_path)
+                validate(schema[k], payload[k], E, new_path)
                 for e in E:
-                    errors.append("['{}']{}".format(k, e))
+                    errors.append("['{}'] {}".format(k, e))
 
     elif type(schema) is list:
         if type(payload) is not list:
-            errors.append("{} must be list".format(payload))
+            errors.append("must be list")
             return False
 
         if len(schema) > 1:
@@ -295,25 +235,26 @@ def validate(schema, payload, errors=None, field_path=None):
             new_path = field_path + [str(i)]
             validate(schema[0], p, E, new_path)
             for e in E:
-                errors.append("[{}]{}".format(i, e))
-        return not errors
-
-    elif type(schema) is set:
-        schema = list(schema)
-        if not any([validate(s, payload, field_path=field_path) for s in schema]):
-            if len(schema) > 1:
-                labels = sorted([msg(s) for s in schema])
-                errors.append(" must be either {} or {} (but {})".format(", ".join(labels[:-1]), labels[-1], payload))
-            else:
-                errors.append("{} must be {}".format(payload, msg(schema[0])))
+                errors.append("[{}] {}".format(i, e))
 
     elif type(schema) is tuple:
         all_valid = True
+        tuple_errors = []
         for s in schema:
-            if not validate(s, payload, field_path=field_path):
-                errors.append("{} must be {}".format(payload, msg(s)))
+            E = []
+            if not validate(s, payload, E, field_path):
+                tuple_errors.extend(E)
                 all_valid = False
-        return all_valid
+        if not all_valid:
+            errors.extend(tuple_errors)
+
+    elif type(schema) is set:
+        if not any([validate(s, payload, field_path=field_path) for s in schema]):
+            labels = sorted([msg(s) for s in schema])
+            if len(schema) > 1:
+                errors.append(" must be either {} or {} (but {})".format(", ".join(labels[:-1]), labels[-1], payload))
+            else:
+                errors.append(" must be {} (but {})".format(labels[0], payload))
 
     else:
         if schema in primitives:
@@ -321,17 +262,39 @@ def validate(schema, payload, errors=None, field_path=None):
 
         result = False
         if callable(schema):
-            # Get the current field name from the path
             current_field = field_path[-1] if field_path else None
             result = schema(payload, field=current_field)
         elif is_primitive_value(schema):
             result = schema == payload
 
         if not result:
-            errors.append(" must be {} (but {})".format(msg(schema), decorate(payload)))
+            # Use natural language format only for direct literal validation
+            if field_path is None and is_primitive_value(payload) and is_primitive_value(schema):
+                errors.append("{} is not {}".format(decorate(payload), msg(schema)))
+            else:
+                errors.append("must be {} (but {})".format(msg(schema), decorate(payload)))
 
     sort_unique(errors)
     return not errors
+
+
+def check_required_fields(schema, payload, errors, path=""):
+    """Check if all required fields are present in payload"""
+    if isinstance(schema, dict):
+        if "*" in schema:
+            return
+
+        for k, v in schema.items():
+            new_path = f"{path}['{k}']" if path else f"['{k}']"
+
+            # Only check if field exists, don't validate type here
+            if k not in payload:
+                errors.append(f"{new_path} is required")
+            elif isinstance(v, dict):
+                check_required_fields(v, payload[k], errors, new_path)
+            elif isinstance(v, list) and isinstance(payload[k], list):
+                for i, item in enumerate(payload[k]):
+                    check_required_fields(v[0], item, errors, f"{new_path}[{i}]")
 
 
 def not_(validator):
