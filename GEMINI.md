@@ -1,0 +1,3 @@
+- Do not PUSH anything to git
+- Use the python interpreter .venv/bin/python
+- Call tests like this `.venv/bin/pytest -v`

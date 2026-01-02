@@ -84,176 +84,176 @@ class TestPrimitives(TestCase):
     def test_schema_list_payload_empty_list(self):
         schema = list
         payload = []
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_list_payload_non_empty_list(self):
         schema = list
         payload = [1, 2, "hello", True, None]
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_list_payload_non_list(self):
         schema = list
         payload = "Hello"
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_int_payload_int(self):
         schema = int
         payload = 5
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_int_payload_int_0(self):
         schema = int
         payload = 0
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_int_payload_int_negative(self):
         schema = int
         payload = -10
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_int_payload_scientific__nok(self):
         schema = int
         payload = 1e3
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
         payload = 1e3
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
         payload = 1e-3
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_int_payload_boolean(self):
         schema = int
         payload = False
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_int_payload_none(self):
         schema = int
         payload = None
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_int_payload_string__nok(self):
         schema = int
         payload = "Hello"
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_float_payload_int__ok(self):
         schema = float
         payload = 5
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_float_payload_float__ok(self):
         schema = float
         payload = 5.5
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_float_payload_float_scientific__ok(self):
         schema = float
         payload = 4.08e10
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_float_payload_bool__nok(self):
         schema = float
         payload = False
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_float_payload_string__nok(self):
         schema = float
         payload = "Hello"
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_float_payload_list__nok(self):
         schema = float
         payload = [1, 2]
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_float_payload_set__nok(self):
         schema = float
         payload = {1, 2}
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_float_payload_dict__nok(self):
         schema = float
         payload = {1: 2}
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_float_payload_tuple__nok(self):
         schema = float
         payload = (1, 2)
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_float_payload_Decimal__ok(self):
         schema = float
         payload = Decimal(5)
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_str_payload_str__ok(self):
         schema = str
         payload = "Hello"
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_str_payload_empty_str__ok(self):
         schema = str
         payload = ""
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_str_payload_int__nok(self):
         schema = str
         payload = 0
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_str_payload_none__nok(self):
         schema = str
         payload = None
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_str_payload_bool__nok(self):
         schema = str
         payload = False
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_str_payload_list__nok(self):
         schema = str
         payload = ["hello", "world"]
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_str_payload_tuple__nok(self):
         schema = str
         payload = ()
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_none_payload_none__ok(self):
         schema = None
         payload = None
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_none_payload_bool__nok(self):
         schema = None
         payload = True
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
     def test_schema_none_payload_str__nok(self):
         schema = None
         payload = "hello"
-        assert not validate(schema, payload)
+        assert not validate(payload, schema)
 
 
 class TestCauseSchemaError(TestCase):
     def test_schema_is_invalid(self):
         schema = Decimal
         payload = 5
-        self.assertRaises(SchemaError, validate, schema, payload)
+        self.assertRaises(SchemaError, validate, payload, schema)
 
 
 class TestListOfPrimitives(TestCase):
     def test_schema_list_int_payload_list_int(self):
         schema = [int]
         payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_schema_strlist_payload_intlist__nok(self):
         schema = [str]
         payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         errors = []
-        assert not validate(schema, payload, errors)
+        assert not validate(payload, schema, errors)
         # assert '1 must be string' in errors
         # assert '2 must be string' in errors
         # assert '10 must be string' in errors
@@ -262,19 +262,19 @@ class TestListOfPrimitives(TestCase):
         schema = [str]
         payload = 1
         errors = []
-        assert not validate(schema, payload, errors)
+        assert not validate(payload, schema, errors)
         assert errors == ["must be list"]
 
     def test_scheme_mixedlist_payload_within__ok(self):
         schema = [str, bool]
         payload = ["hello", False]
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
     def test_scheme_mixedlist_payload_outside__nok(self):
         schema = [str, bool, None, int]
         payload = ["hello", False, 5.5]
         errors = []
-        assert not validate(schema, payload, errors)
+        assert not validate(payload, schema, errors)
         # assert '5.5 must be either null, boolean, string or integer' in errors
 
 
@@ -286,46 +286,46 @@ class TestTissues(TestCase):
     def test_schema_email_payload_email_ok(self):
         s = email
         p = "hello@world.com"
-        assert validate(s, p)
+        assert validate(p, s)
 
     def test_schema_emaillist_payload_emaillist_ok(self):
         s = [email]
         p = ["hello@world.com", "world@hello.com"]
-        assert validate(s, p)
+        assert validate(p, s)
 
     def test_schema_mixedlist_payload_within__ok(self):
         s = [email, str, int]
         p = ["hello@world.com", "world", 5]
-        assert validate(s, p)
+        assert validate(p, s)
 
     def test_schema_mixedtissuelist_payload_outslidelist__nok(self):
         s = [email, url]
         p = ["hello@world.com", "world@hello.com", "com"]
         e = []
-        assert not validate(s, p, e)
+        assert not validate(p, s, e)
         # assert 'com must be either a valid url or a valid email' in e
 
     def test_schema_lt10(self):
         s = lt(10)
         p = 9
-        assert v(s, p)
+        assert v(p, s)
         p = 11
         e = []
-        assert not v(s, p, e)
+        assert not v(p, s, e)
         # assert '11 must be less than 10' in e
 
         s = [lt(10)]
         p = 9
         e = []
-        assert not v(s, p, e)
+        assert not v(p, s, e)
         # assert '9 must be list' in e
 
         p = [7, 8, 9]
-        assert v(s, p)
+        assert v(p, s)
 
         p = [7, 8, 9, 10, 11, 12]
         e = []
-        assert not v(s, p, e)
+        assert not v(p, s, e)
         # assert '10 must be less than 10' in e
         # assert '11 must be less than 10' in e
         # assert '12 must be less than 10' in e
@@ -333,60 +333,60 @@ class TestTissues(TestCase):
 
 class TestComplexSyntax(TestCase):
     def test_curly_braces(self):
-        assert validate({1, 2}, 1)
-        assert validate({1, 2}, 2)
+        assert validate(1, {1, 2})
+        assert validate(2, {1, 2})
 
         e = []
-        assert not validate({1, 2}, 3, e)
+        assert not validate(3, {1, 2}, e)
         # assert '3 must be either 1 or 2' in e
 
-        assert validate([{1, 2}], [1, 2, 2, 2, 1, 1, 1])
+        assert validate([1, 2, 2, 2, 1, 1, 1], [{1, 2}])
 
         e = []
-        assert not validate([{1, 2}], [1, 2, 3, 4], e)
+        assert not validate([1, 2, 3, 4], [{1, 2}], e)
         # assert '3 must be either 1 or 2' in e
         # assert '4 must be either 1 or 2' in e
 
-        assert validate([{int, str}], [1, 2, "hello", "world"])
-        assert not validate([{int, str}], [1, 2, "hello", "world", True])
-        assert not validate([{int, str}], [1, 2, "hello", "world", None])
-        assert not validate([{int, str}], [1, 2, "hello", "world", 3.8])
-        assert not validate([{int, str}], [1, 2, "hello", "world", 3.4j])
-        assert not validate([{int, str}], [1, 2, "hello", "world", str])
+        assert validate([1, 2, "hello", "world"], [{int, str}])
+        assert not validate([1, 2, "hello", "world", True], [{int, str}])
+        assert not validate([1, 2, "hello", "world", None], [{int, str}])
+        assert not validate([1, 2, "hello", "world", 3.8], [{int, str}])
+        assert not validate([1, 2, "hello", "world", 3.4j], [{int, str}])
+        assert not validate([1, 2, "hello", "world", str], [{int, str}])
 
     def test_parentheses(self):
         s = (divisible(2), lt(10))
-        assert validate(s, 4)
+        assert validate(4, s)
 
         e = []
-        assert not validate(s, 5, e)
+        assert not validate(5, s, e)
         assert e == ["must be multiple of 2 (but 5)"]
 
         e = []
-        assert not validate(s, 11, e)
+        assert not validate(11, s, e)
         assert e == ["must be less than 10 (but 11)", "must be multiple of 2 (but 11)"]
 
         # Validate list of parentheses
-        assert validate([s], [2, 4, 6, 8])
+        assert validate([2, 4, 6, 8], [s])
 
         e = []
-        assert not validate([s], [3, 13], e)
+        assert not validate([3, 13], [s], e)
         # assert '3 must be multiple of 2' in e
         # assert '13 must be multiple of 2' in e
         # assert '13 must be less than 10' in e
 
-        assert not validate([(bool, True)], [1, 2])  # 1 & 2 are not booleans
+        assert not validate([1, 2], [(bool, True)])  # 1 & 2 are not booleans
 
     def test_dicts(self):
         # Success
         s = {"name": str, "active": bool, "age": int, "pets": [str]}
         p = {"name": "Roger", "active": True, "age": 38, "pets": ["Jimmy", "Roger", "Jessey"]}
-        assert v(s, p)
+        assert v(p, s)
 
         # Pass wrong data types
         p = {"name": 50, "active": "Yes", "age": "38", "pets": [1, 2, "Jessey"]}
         e = []
-        assert not v(s, p, e)
+        assert not v(p, s, e)
 
         assert e == [
             "['active'] must be boolean (but 'Yes')",
@@ -421,18 +421,18 @@ class TestComplexSyntax(TestCase):
             ],
         }
         errors = []
-        assert validate(schema, payload, errors)
+        assert validate(payload, schema, errors)
 
         # Try passing different value
         payload["kids"][1]["grade"] = None
         e = []
-        assert not validate(schema, payload, e)
+        assert not validate(payload, schema, e)
         assert e == ["['kids'] [1] ['grade'] must be integer (but None)"]
 
         # Try adding a different value other than 'male' or 'female'
         e = []
         payload["kids"][1]["sex"] = "f"
-        assert not validate(schema, payload, e)
+        assert not validate(payload, schema, e)
         assert e == ["['kids'] [1] ['grade'] must be integer (but None)", "['kids'] [1] ['sex']  must be either Female or Male (but f)"]
 
 
@@ -517,12 +517,12 @@ class TestWildcardValidation(TestCase):
 
         # Should pass - all values are strings
         valid_payload = {"name": "John", "city": "NYC", "country": "USA"}
-        assert validate(schema, valid_payload)
+        assert validate(valid_payload, schema)
 
         # Should fail - has non-string values
         errors = []
         invalid_payload = {"name": "John", "age": 25, "active": True}  # Not a string  # Not a string
-        assert not validate(schema, invalid_payload, errors)
+        assert not validate(invalid_payload, schema, errors)
         assert len(errors) == 2
 
     def test_wildcard_nested_pattern(self):
@@ -539,7 +539,7 @@ class TestWildcardValidation(TestCase):
             }
         }
         errors = []
-        assert not validate(schema, valid_payload, errors)
+        assert not validate(valid_payload, schema, errors)
         assert errors == [
             "['users'] ['user2'] ['age'] is required",
             "['users'] ['user3'] ['name'] is required",
@@ -556,7 +556,7 @@ class TestWildcardValidation(TestCase):
                 "user3": {"age": 40},
             }
         }
-        assert not validate(schema, invalid_payload, errors)
+        assert not validate(invalid_payload, schema, errors)
         assert errors == [
             "['users'] ['user1'] ['age'] must be integer (but '25')",
             "['users'] ['user2'] ['age'] is required",
@@ -575,7 +575,7 @@ class TestWildcardValidation(TestCase):
                 {"id": "prod2", "details": {"color": "blue", "weight": "150g"}},
             ]
         }
-        assert validate(schema, valid_payload)
+        assert validate(valid_payload, schema)
 
         # Should fail - non-string details
         errors = []
@@ -583,14 +583,14 @@ class TestWildcardValidation(TestCase):
             "products": [{"id": "prod1", "details": {"color": "red", "count": 5, "inStock": True}}]
             # Should be string  # Should be string
         }
-        assert not validate(schema, invalid_payload, errors)
+        assert not validate(invalid_payload, schema, errors)
         assert len(errors) == 2
 
     def test_wildcard_with_specific_keys(self):
         """Test that wildcard can't be mixed with specific keys at same level"""
         schema = {"config": {"*": str, "version": int}}  # This should cause SchemaError
 
-        self.assertRaises(SchemaError, validate, schema, {"config": {}})
+        self.assertRaises(SchemaError, validate, {"config": {}}, schema)
 
 
 class TestArrayNotationValidation(TestCase):
@@ -673,10 +673,10 @@ class TestArrayNotationValidation(TestCase):
             ],
         }
         errors = []
-        validate(schema, payload, errors)
+        validate(payload, schema, errors)
         print(schema, payload, errors)
 
-        assert validate(schema, payload)
+        assert validate(payload, schema)
 
         payload = {
             "name": "John",
@@ -684,8 +684,8 @@ class TestArrayNotationValidation(TestCase):
             "pets": ["dog", "cat"],
         }
         errors = []
-        validate(schema, payload, errors)
-        assert not validate(schema, payload)
+        validate(payload, schema, errors)
+        assert not validate(payload, schema)
 
         # Invalid payload - wrong types
         errors = []
@@ -698,7 +698,7 @@ class TestArrayNotationValidation(TestCase):
                 {"name": True, "grade": "3"},
             ],
         }
-        assert not validate(schema, invalid_payload, errors)
+        assert not validate(invalid_payload, schema, errors)
         assert errors == [
             "['kids'] [0] ['age'] must be integer (but '10')",
             "['kids'] [0] ['grade'] is required",
@@ -717,7 +717,7 @@ class TestArrayNotationValidation(TestCase):
             "pets": ["dog", "cat"],
             "kids": {"name": "Alice", "age": 10},
         }
-        assert not validate(schema, invalid_array_payload, errors)
+        assert not validate(invalid_array_payload, schema, errors)
         assert len(errors) == 1
         assert "kids" in errors[0] and "must be list" in errors[0]
 
@@ -752,7 +752,7 @@ class TestArrayNotationValidation(TestCase):
         }
 
         errors = []
-        result = validate(schema, payload, errors)
+        result = validate(payload, schema, errors)
         assert not result
         assert errors == [
             "['children'] [0] ['pets'] [2] ['age'] is required",
@@ -771,7 +771,7 @@ class TestArrayNotationValidation(TestCase):
             "name": "John",
             "children": [{"name": "Alice", "age": "10", "pets": [{"type": None, "age": "5"}, {"type": "Cat", "age": "Seven"}]}],  # should be int
         }
-        assert not validate(schema, invalid_payload, errors)
+        assert not validate(invalid_payload, schema, errors)
         assert len(errors) == 4
 
 
@@ -820,12 +820,12 @@ class TestStrongPassword(TestCase):
 
         # Valid payload
         valid_payload = {"username": "john_doe", "password": "SecurePass123!"}
-        self.assertTrue(validate(schema, valid_payload))
+        self.assertTrue(validate(valid_payload, schema))
 
         # Invalid payload
         invalid_payload = {"username": "john_doe", "password": "weak"}
         errors = []
-        self.assertFalse(validate(schema, invalid_payload, errors))
+        self.assertFalse(validate(invalid_payload, schema, errors))
         self.assertTrue(any("strong password" in err for err in errors))
 
 
@@ -846,7 +846,7 @@ class TestFieldNameAwareness(TestCase):
 
         payload = {"username": "john_doe", "email": "john@example.com"}
 
-        validate(schema, payload)
+        validate(payload, schema)
         self.assertEqual(self.field_tracker.last_field, "email")
 
     def test_nested_field_passing(self):
@@ -855,7 +855,7 @@ class TestFieldNameAwareness(TestCase):
 
         payload = {"user": {"profile": {"name": "John Doe"}}}
 
-        validate(schema, payload)
+        validate(payload, schema)
         self.assertEqual(self.field_tracker.last_field, "name")
 
     def test_array_field_passing(self):
@@ -864,7 +864,7 @@ class TestFieldNameAwareness(TestCase):
 
         payload = {"users": [{"name": "John"}, {"name": "Jane"}]}
 
-        validate(schema, payload)
+        validate(payload, schema)
         self.assertEqual(self.field_tracker.last_field, "name")
 
     def test_field_specific_validation(self):
@@ -885,15 +885,15 @@ class TestFieldNameAwareness(TestCase):
 
         # Valid payload
         valid_payload = {"username": "joe", "password": "securepass"}  # 3 chars  # 10 chars
-        self.assertTrue(validate(schema, valid_payload))
+        self.assertTrue(validate(valid_payload, schema))
 
         # Invalid username (too short)
         invalid_username = {"username": "jo", "password": "securepass"}  # 2 chars
-        self.assertFalse(validate(schema, invalid_username))
+        self.assertFalse(validate(invalid_username, schema))
 
         # Invalid password (too short)
         invalid_password = {"username": "joe", "password": "short"}  # 5 chars
-        self.assertFalse(validate(schema, invalid_password))
+        self.assertFalse(validate(invalid_password, schema))
 
     def test_wildcard_field_passing(self):
         """Test that field names are passed correctly with wildcard schemas"""
@@ -901,7 +901,7 @@ class TestFieldNameAwareness(TestCase):
 
         payload = {"config": {"setting1": "value1", "setting2": "value2"}}
 
-        validate(schema, payload)
+        validate(payload, schema)
         self.assertEqual(self.field_tracker.last_field, "setting2")
 
     def test_array_notation_field_passing(self):
@@ -910,7 +910,7 @@ class TestFieldNameAwareness(TestCase):
 
         payload = {"users": [{"name": "John", "email": "john@example.com"}, {"name": "Jane", "email": "jane@example.com"}]}
 
-        validate(schema, payload)
+        validate(payload, schema)
         # Should receive the last field name processed
         self.assertEqual(self.field_tracker.last_field, "email")
 
@@ -941,15 +941,15 @@ class TestFieldNameAwareness(TestCase):
 
         # Valid payload
         valid_payload = {"username": "john123", "email": "john@example.com"}
-        self.assertTrue(validate(schema, valid_payload))
+        self.assertTrue(validate(valid_payload, schema))
 
         # Invalid username (special characters)
         invalid_username = {"username": "john@123", "email": "john@example.com"}
-        self.assertFalse(validate(schema, invalid_username))
+        self.assertFalse(validate(invalid_username, schema))
 
         # Invalid email (wrong format)
         invalid_email = {"username": "john123", "email": "not-an-email"}
-        self.assertFalse(validate(schema, invalid_email))
+        self.assertFalse(validate(invalid_email, schema))
 
 
 class TestBackwardCompatibility(TestCase):
@@ -961,11 +961,11 @@ class TestBackwardCompatibility(TestCase):
 
         valid_payload = {"name": "John Doe", "age": 30, "contact": "john@example.com"}
 
-        self.assertTrue(validate(schema, valid_payload))
+        self.assertTrue(validate(valid_payload, schema))
 
         invalid_payload = {"name": 123, "age": "30", "contact": "not-an-email"}  # Should be string  # Should be integer  # Should be email
 
-        self.assertFalse(validate(schema, invalid_payload))
+        self.assertFalse(validate(invalid_payload, schema))
 
     def test_existing_test_cases(self):
         """Test that existing complex validation scenarios still work"""
@@ -973,11 +973,11 @@ class TestBackwardCompatibility(TestCase):
 
         valid_payload = {"user": {"profile": {"name": "John Doe", "age": 30, "emails": ["john@example.com", "doe@example.com"]}}}
 
-        self.assertTrue(validate(schema, valid_payload))
+        self.assertTrue(validate(valid_payload, schema))
 
         invalid_payload = {"user": {"profile": {"name": "John Doe", "age": 30, "emails": ["not-an-email", 123]}}}  # Invalid emails
 
-        self.assertFalse(validate(schema, invalid_payload))
+        self.assertFalse(validate(invalid_payload, schema))
 
 
 class TestNotTissue(TestCase):
@@ -986,19 +986,19 @@ class TestNotTissue(TestCase):
         schema = {"field": not_(integer)}
 
         # These should pass since they're not integers
-        self.assertTrue(validate(schema, {"field": "string"}))
-        self.assertTrue(validate(schema, {"field": True}))
-        self.assertTrue(validate(schema, {"field": 3.14}))
-        self.assertTrue(validate(schema, {"field": None}))
+        self.assertTrue(validate({"field": "string"}, schema))
+        self.assertTrue(validate({"field": True}, schema))
+        self.assertTrue(validate({"field": 3.14}, schema))
+        self.assertTrue(validate({"field": None}, schema))
 
         # This should fail since it is an integer
-        self.assertFalse(validate(schema, {"field": 42}))
+        self.assertFalse(validate({"field": 42}, schema))
 
     def test_error_messages(self):
         """Test that error messages are properly formatted"""
         schema = {"field": not_(integer)}
         errors = []
-        validate(schema, {"field": 42}, errors)
+        validate({"field": 42}, schema, errors)
         self.assertIn("must be not integer", errors[0])
 
     def test_with_email_validator(self):
@@ -1006,21 +1006,21 @@ class TestNotTissue(TestCase):
         schema = {"field": not_(email)}
 
         # These should pass since they're not valid emails
-        self.assertTrue(validate(schema, {"field": "not-an-email"}))
-        self.assertTrue(validate(schema, {"field": "missing@tld"}))
+        self.assertTrue(validate({"field": "not-an-email"}, schema))
+        self.assertTrue(validate({"field": "missing@tld"}, schema))
 
         # This should fail since it's a valid email
-        self.assertFalse(validate(schema, {"field": "test@example.com"}))
+        self.assertFalse(validate({"field": "test@example.com"}, schema))
 
     def test_list_validation(self):
         """Test using not_ in a list schema"""
         schema = {"fields": [not_(string)]}
 
         # Should pass - list of non-strings
-        self.assertTrue(validate(schema, {"fields": [1, 2.0, True, None]}))
+        self.assertTrue(validate({"fields": [1, 2.0, True, None]}, schema))
 
         # Should fail - contains strings
-        self.assertFalse(validate(schema, {"fields": [1, "string", 3]}))
+        self.assertFalse(validate({"fields": [1, "string", 3]}, schema))
 
     def test_nested_structures(self):
         """Test not_ in nested structures"""
@@ -1028,11 +1028,11 @@ class TestNotTissue(TestCase):
 
         # Should pass
         valid_payload = {"user": {"id": 123, "settings": {"values": ["string", True, None]}}}
-        self.assertTrue(validate(schema, valid_payload))
+        self.assertTrue(validate(valid_payload, schema))
 
         # Should fail
         invalid_payload = {"user": {"id": "string-id", "settings": {"values": ["string", 3.14, True]}}}  # should not be string  # contains numeric
-        self.assertFalse(validate(schema, invalid_payload))
+        self.assertFalse(validate(invalid_payload, schema))
 
     def test_field_awareness(self):
         """Test that field name is properly passed through"""
@@ -1045,7 +1045,7 @@ class TestNotTissue(TestCase):
         field_aware_validator.last_field = None
 
         schema = {"username": not_(field_aware_validator)}
-        validate(schema, {"username": 123})
+        validate({"username": 123}, schema)
 
         # Check that field name was passed through
         self.assertEqual(field_aware_validator.last_field, "username")
@@ -1056,34 +1056,34 @@ class TestNotTissue(TestCase):
         schema = {"field": not_((integer, url))}
 
         # Should pass - neither integer nor URL
-        self.assertTrue(validate(schema, {"field": "just a string"}))
-        self.assertTrue(validate(schema, {"field": None}))
+        self.assertTrue(validate({"field": "just a string"}, schema))
+        self.assertTrue(validate({"field": None}, schema))
 
         # Should pass - is an integer but also failing to be an url
-        self.assertTrue(validate(schema, {"field": 42}))
+        self.assertTrue(validate({"field": 42}, schema))
 
         schema = {"field": not_((str, url))}
-        self.assertFalse(validate(schema, {"field": "https://example.com"}))
+        self.assertFalse(validate({"field": "https://example.com"}, schema))
 
         schema = {"field": not_((str, url))}
-        self.assertTrue(validate(schema, {"field": "example.com"}))
+        self.assertTrue(validate({"field": "example.com"}, schema))
 
     def test_literal_values(self):
         """Test not_ with literal primitive values"""
         schema = {"field": not_(4)}
 
         # Should pass - not equal to 4
-        self.assertTrue(validate(schema, {"field": 5}))
-        self.assertTrue(validate(schema, {"field": "4"}))
-        self.assertTrue(validate(schema, {"field": None}))
+        self.assertTrue(validate({"field": 5}, schema))
+        self.assertTrue(validate({"field": "4"}, schema))
+        self.assertTrue(validate({"field": None}, schema))
 
         # Should fail - equals 4
-        self.assertFalse(validate(schema, {"field": 4}))
+        self.assertFalse(validate({"field": 4}, schema))
 
         # Test with string literal
         schema = {"field": not_("test")}
-        self.assertTrue(validate(schema, {"field": "other"}))
-        self.assertFalse(validate(schema, {"field": "test"}))
+        self.assertTrue(validate({"field": "other"}, schema))
+        self.assertFalse(validate({"field": "test"}, schema))
 
     def test_custom_validators(self):
         """Test not_ with custom validators"""
@@ -1096,11 +1096,11 @@ class TestNotTissue(TestCase):
         schema = {"field": not_(custom_validator)}
 
         # Should pass - doesn't start with test_
-        self.assertTrue(validate(schema, {"field": "other_prefix"}))
-        self.assertTrue(validate(schema, {"field": 123}))
+        self.assertTrue(validate({"field": "other_prefix"}, schema))
+        self.assertTrue(validate({"field": 123}, schema))
 
         # Should fail - starts with test_
-        self.assertFalse(validate(schema, {"field": "test_value"}))
+        self.assertFalse(validate({"field": "test_value"}, schema))
 
     def test_dotted_notation(self):
         schema = {"user.settings.[devices].status": (integer, string, numeric)}
@@ -1108,7 +1108,7 @@ class TestNotTissue(TestCase):
         payload = {"user": {"settings": {"devices": [{"status": "invalid1"}, {"status": "invalid2"}]}}}
 
         errors = []
-        validate(schema, payload, errors)
+        validate(payload, schema, errors)
 
         assert errors == [
             "['user'] ['settings'] ['devices'] [0] ['status'] must be integer (but 'invalid1')",
@@ -1131,12 +1131,12 @@ class TestUnderscoreValidation(TestCase):
 
         # Should stop at first failure (integer)
         errors = []
-        validate(schema, {"field": "test"}, errors)
+        validate({"field": "test"}, schema, errors)
         self.assertEqual(errors, ["['field'] must be integer (but 'test')"])
 
         # Should pass all validations
         errors = []
-        validate(schema, {"field": 5}, errors)
+        validate({"field": 5}, schema, errors)
         assert errors == ["['field'] must be string (but 5)"]
 
     def test_regular_validation_comparison(self):
@@ -1148,12 +1148,12 @@ class TestUnderscoreValidation(TestCase):
 
         # Lazy validation - should only show integer error
         lazy_errors = []
-        validate(lazy_schema, {"field": test_value}, lazy_errors)
+        validate({"field": test_value}, lazy_schema, lazy_errors)
         self.assertEqual(lazy_errors, ["['field'] must be integer (but True)"])
 
         # Regular validation - should show all errors
         regular_errors = []
-        validate(regular_schema, {"field": test_value}, regular_errors)
+        validate({"field": test_value}, regular_schema, regular_errors)
         self.assertEqual(
             regular_errors, ["['field'] must be integer (but True)", "['field'] must be numeric (but True)", "['field'] must be string (but True)"]
         )
@@ -1165,7 +1165,7 @@ class TestUnderscoreValidation(TestCase):
         payload = {"items": ["invalid1", "invalid2", "invalid3"]}
 
         errors = []
-        validate(schema, payload, errors)
+        validate(payload, schema, errors)
 
         assert errors == [
             "['items'] [0] must be integer (but 'invalid1')",
@@ -1180,7 +1180,7 @@ class TestUnderscoreValidation(TestCase):
         payload = {"fields": [15, 20, -120]}  # All fail divisible(3)
 
         errors = []
-        validate(schema, payload, errors)
+        validate(payload, schema, errors)
 
         assert errors == [
             "['fields'] [0] must be less than 10 (but 15)",
@@ -1204,7 +1204,7 @@ class TestUnderscoreValidation(TestCase):
         }
 
         errors = []
-        validate(schema, payload, errors)
+        validate(payload, schema, errors)
 
         self.assertEqual(
             errors,
@@ -1221,7 +1221,7 @@ class TestUnderscoreValidation(TestCase):
         payload = {"config": {"setting1": "invalid", "setting2": False, "setting3": None}}
 
         errors = []
-        validate(schema, payload, errors)
+        validate(payload, schema, errors)
 
         self.assertEqual(
             errors,
@@ -1237,7 +1237,7 @@ class TestUnderscoreValidation(TestCase):
         schema = {"required_field": _(self.basic_validators)}
 
         errors = []
-        validate(schema, {}, errors)
+        validate({}, schema, errors)
 
         self.assertEqual(errors, ["['required_field'] is required"])
 
@@ -1258,7 +1258,7 @@ class TestUnderscoreValidation(TestCase):
         }
 
         errors = []
-        validate(schema, payload, errors)
+        validate(payload, schema, errors)
 
         self.assertEqual(  # todo start a new thread
             errors,
@@ -1276,7 +1276,7 @@ class TestUnderscoreValidation(TestCase):
         payload = {"items": [{}, {"value": "xxx"}, {}]}  # Missing value  # Missing value
 
         errors = []
-        validate(schema, payload, errors)
+        validate(payload, schema, errors)
 
         assert errors == [
             "['items'] [0] ['value'] is required",
@@ -1292,13 +1292,13 @@ class TestUnderscoreValidation(TestCase):
         # Single validator
         schema = {"field": _(integer)}
         errors = []
-        validate(schema, {"field": "invalid"}, errors)
+        validate({"field": "invalid"}, schema, errors)
         self.assertEqual(errors, ["['field'] must be integer (but 'invalid')"])
 
         # Same validator multiple times
         schema = {"field": _((integer, integer, integer))}
         errors = []
-        validate(schema, {"field": "invalid"}, errors)
+        validate({"field": "invalid"}, schema, errors)
         self.assertEqual(errors, ["['field'] must be integer (but 'invalid')"])
 
         # Complex nested structure
@@ -1336,7 +1336,7 @@ class TestUnderscoreValidation(TestCase):
         }
 
         errors = []
-        validate(schema, payload, errors)
+        validate(payload, schema, errors)
 
         self.assertEqual(
             errors,

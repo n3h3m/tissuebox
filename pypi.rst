@@ -55,7 +55,7 @@ against basic data types and validate using ``validate`` method.
        'price_per_night': integer
    }
 
-   validate(schema, payload)
+   validate(payload, schema)
 
 will return
 
@@ -87,7 +87,7 @@ collections. You can contribute more via Github.
        "web": url
    }
 
-   validate(schema, payload)
+   validate(payload, schema)
 
 will return
 
@@ -146,7 +146,7 @@ and pass it to the main schema as below.
        "address": address
    }
 
-   validate(schema, payload)
+   validate(payload, schema)
 
 would return
 
@@ -219,7 +219,7 @@ not an Australian state
        }
    }
 
-   validate(schema, hotel)
+   validate(hotel, schema)
 
 would return
 
@@ -301,7 +301,7 @@ brevity I’ve removed few fields in the payload & schema.
    ...     "address.zip": australian_zip
    ... }
    >>>
-   >>> validate(schema, hotel)
+   >>> validate(hotel, schema)
    (False, ['["address"]["zip"] must be a valida Australian zip"])
 
 7. Validating with type_functions that accept parameters.
@@ -333,7 +333,7 @@ between 1-5.
    ...     "rating": 5.1
    ... }
    >>>
-   >>> validate(schema, hotel)
+   >>> validate(hotel, schema)
    (False, [
        '["price_per_night"] is failing to be `divisible(50)`', 
        '["rating"] is failing to be `between(1, 5)`'

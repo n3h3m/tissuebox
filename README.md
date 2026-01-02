@@ -45,7 +45,7 @@ schema = {
     'price_per_night': integer
 }
 
-validate(schema, payload)
+validate(payload, schema)
 
 ```
 
@@ -76,7 +76,7 @@ schema = {
     "web": url
 }
 
-validate(schema, payload)
+validate(payload, schema)
 ```
 
 will return
@@ -131,7 +131,7 @@ schema = {
     "address": address
 }
 
-validate(schema, payload)
+validate(payload, schema)
 ```
 
 would return
@@ -198,7 +198,7 @@ payload = {
 
 errors = []
 
-validate(schema, hotel, errors)
+validate(hotel, schema, errors)
 ```
 
 would return
@@ -293,7 +293,7 @@ return re.match(
 "address.zip": australian_zip
 ...}
 >> > errors = []
->> > validate(schema, hotel, errors)
+>> > validate(hotel, schema, errors)
 False
 >> > errors
 ['["address"]["zip"] must be a valida Australian zip"]
@@ -330,7 +330,7 @@ a hotel must be between 1-5.
 ...}
 >> >
 >> > errors = []
->> > validate(schema, hotel, errors)
+>> > validate(hotel, schema, errors)
 False
 >> > errors
 [
@@ -418,54 +418,54 @@ schema = {
 
 0 - Tissuebox needs to support primitive literals
 
-- `validate(5, 5)` would be `True` while `validate(5, 4)` is `False`
+- `validate(5, 5)` would be `True` while `validate(4, 5)` is `False`
 
 1 - Tissuebox needs to validate basic primitives, Supported primitives are `int`, `str`, `float`, `list`, `dict`
 , `Decimal`, `bool`, `None`
 
-- `validate(int, 5)` would return `True`
-- `validate(str, 'hello)` would return `True`
+- `validate(5, int)` would return `True`
+- `validate('hello', str)` would return `True`
 
 2 - Tissuebox needs to validate array of primitives
 
-- `valiate([int], [1,2,3])` would return `True`
+- `valiate([1,2,3], [int])` would return `True`
 
 3 - Tissuebox needs to validate array of mixed primitives
 
-- `validate([int, str], [1, 'hello', 'world', 2, 3, 4])` would return `True`
+- `validate([1, 'hello', 'world', 2, 3, 4], [int, str])` would return `True`
 
 4 - Tissuebox needs to support tissues. A tissue is a tiny function which takes 'single' argument and returns a boolean
 
-- `validate(email, 'hello@world.com)` would return `True`
+- `validate('hello@world.com', email)` would return `True`
 
 5 - Tissuebox needs to support list of tissues
 
-- `validate([email], ['hello@world.com', 'world@hello.com'])` would return `True`
+- `validate(['hello@world.com', 'world@hello.com'], [email])` would return `True`
 
 6 - Tissuebox needs to support list of mixed tissues
 
-- `validate([email, url], ['hello@world.com', 'world@hello.com', 'www.duck.com'])` would return `True`
+- `validate(['hello@world.com', 'world@hello.com', 'www.duck.com'], [email, url])` would return `True`
 
 7 - Tissuebox needs to support tissues with parameters
 
-- `validate(lt(10), 9))` would return `True`
+- `validate(9, lt(10))` would return `True`
 
 8 - Tissuebox needs to support tissues with parameters
 
-- `validate(lt(10), 9))` would return `True`
-- `validate(lt(10), 11))` would return `False`
+- `validate(9, lt(10))` would return `True`
+- `validate(11, lt(10))` would return `False`
 
 9 - Tissuebox must support `{}` syntax which refers to `or` condition also should work for list
 
-- `validate({int, str}, 1)` is `True`
-- `validate({int, str}, 'Hello')` is `True`
-- `validate({int, str}, 1.1)` is `False`
-- `validate([{int, str}], [1, 2, 'hello', 'world'])` is `True`
+- `validate(1, {int, str})` is `True`
+- `validate('Hello', {int, str})` is `True`
+- `validate(1.1, {int, str})` is `False`
+- `validate([1, 2, 'hello', 'world'], [{int, str}])` is `True`
 
 10 - Tissuebox must support `()` syntax which refers to `and` condition also should work for list
 
-- `validate((divisible(2), lt(10)), 4` is `True`
-- `validate([(divisible(2), lt(10))], [2, 4, 6, 8]` is `True`
+- `validate(4, (divisible(2), lt(10)))` is `True`
+- `validate([2, 4, 6, 8], [(divisible(2), lt(10))])` is `True`
 
 11 - Tissuebox must support dict based schemas
 
@@ -482,7 +482,7 @@ p = {
     'age': 38,
     'pets': ['Jimmy', 'Roger', 'Jessey']
 }
-validate(s, p)
+validate(p, s)
 ```
 
 would return `True`
@@ -520,7 +520,7 @@ payload = {
         }
     ]
 }
-validate(schema, payload)
+validate(payload, schema)
 ```
 
 would return `True`

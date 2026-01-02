@@ -95,7 +95,7 @@ def is_valid_schema(schema):
 
 
 # Modify validate() function to handle early exit validation
-def validate(schema, payload, errors=None, field_path=None):
+def validate(payload, schema, errors=None, field_path=None):
     if errors is None:
         errors = []
     if field_path is None:
@@ -119,7 +119,7 @@ def validate(schema, payload, errors=None, field_path=None):
             for key, value in payload.items():
                 E = []
                 new_path = field_path + [key]
-                validate(wildcard_schema, value, E, new_path)
+                validate(value, wildcard_schema, E, new_path)
                 for e in E:
                     errors.append("['{}'] {}".format(key, e))
             sort_unique(errors)
@@ -131,7 +131,7 @@ def validate(schema, payload, errors=None, field_path=None):
                     continue
                 E = []
                 new_path = field_path + [k]
-                validate(schema[k], payload[k], E, new_path)
+                validate(payload[k], schema[k], E, new_path)
                 for e in E:
                     errors.append("['{}'] {}".format(k, e))
 
@@ -146,7 +146,7 @@ def validate(schema, payload, errors=None, field_path=None):
         for i, p in enumerate(payload):
             E = []
             new_path = field_path + [str(i)]
-            validate(schema[0], p, E, new_path)
+            validate(p, schema[0], E, new_path)
             for e in E:
                 errors.append("[{}] {}".format(i, e))
 
@@ -164,14 +164,14 @@ def validate(schema, payload, errors=None, field_path=None):
             tuple_errors = []
             for s in schema:
                 E = []
-                if not validate(s, payload, E, field_path):
+                if not validate(payload, s, E, field_path):
                     tuple_errors.extend(E)
                     all_valid = False
             if not all_valid:
                 errors.extend(tuple_errors)
 
     elif type(schema) is set:
-        if not any([validate(s, payload, field_path=field_path) for s in schema]):
+        if not any([validate(payload, s, field_path=field_path) for s in schema]):
             labels = sorted([msg(s) for s in schema])
             if len(schema) > 1:
                 errors.append(" must be either {} or {} (but {})".format(", ".join(labels[:-1]), labels[-1], payload))
@@ -323,7 +323,7 @@ def normalise(schema, start=None):
 
 def not_(validator):
     def not_(x, field=None):
-        return not validate(validator, x, field_path=[field] if field else None)
+        return not validate(x, validator, field_path=[field] if field else None)
 
     not_.msg = f"not {msg(validator)}"
     return not_
@@ -337,14 +337,14 @@ def _(validator):
             # For tuples, validate each rule but exit on first failure
             for v in validator:
                 E = []
-                if not validate(v, x, E, [field] if field else None):
+                if not validate(x, v, E, [field] if field else None):
                     # Return the first error only
                     return False, E[0] if E else "validation failed"
             return True, None
         else:
             # For single validators, just run the validation
             E = []
-            if not validate(validator, x, E, [field] if field else None):
+            if not validate(x, validator, E, [field] if field else None):
                 return False, E[0] if E else "validation failed"
             return True, None
 
