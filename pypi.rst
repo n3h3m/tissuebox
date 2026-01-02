@@ -1,4 +1,4 @@
-.. figure:: https://raw.githubusercontent.com/nehemiahjacob/tissuebox/master/tissuebox.png
+.. figure:: https://raw.githubusercontent.com/n3h3m/tissuebox/master/tissuebox.png
 
 Tissuebox
 ---------

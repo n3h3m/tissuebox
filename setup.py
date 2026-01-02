@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 try:
     fh = open("pypi.rst", "r")
@@ -8,12 +8,12 @@ except FileNotFoundError:
 
 setup(
     name="tissuebox",
-    version="25.1.7",
+    version="26.1.1",
     description="Tissuebox :: Pythonic payload validator",
     author="nehemiah",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    author_email="nehemiah@skytechlabs.com.au",
-    url="https://github.com/nehemiahjacob/tissuebox.git",
+    author_email="nehemiah@gmail.com",
+    url="https://github.com/n3h3m/tissuebox.git",
     packages=["tissuebox"],
 )
